@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+<<<<<<< HEAD
 	"log"
 	"os"
 )
@@ -41,6 +42,15 @@ func dirTree(out *os.File, path string, printFiles bool) error {
 
 func main() {
 
+=======
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+func main() {
+>>>>>>> 2e3e8e02cc361812d336a41d0a9e0d782605d297
 	out := os.Stdout
 	if !(len(os.Args) == 2 || len(os.Args) == 3) {
 		panic("usage go run main.go . [-f]")
@@ -51,5 +61,8 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
+<<<<<<< HEAD
 
+=======
+>>>>>>> 2e3e8e02cc361812d336a41d0a9e0d782605d297
 }

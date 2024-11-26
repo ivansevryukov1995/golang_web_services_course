@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 func dirTree(out *os.File, path string, printFiles bool) error {
@@ -35,15 +36,22 @@ func dirTree(out *os.File, path string, printFiles bool) error {
 			sizeSufix = ""
 		}
 
-		fmt.Printf("%s%s %s\n", prefix, file.Name(), sizeSufix)
-
-		if file.IsDir() {
-			// fmt.Printf("\t")
-			dirTree(out, path+string(os.PathSeparator)+file.Name(), printFiles)
+		for j := 0; j < len(strings.Split(path+string(os.PathSeparator)+file.Name(), "\\"))-2; j++ {
+			fmt.Printf("\t")
 		}
 
-	}
+		if !printFiles {
+			if file.IsDir() {
+				fmt.Printf("%s%s %s\n", prefix, file.Name(), sizeSufix)
+			}
+		} else {
+			fmt.Printf("%s%s %s\n", prefix, file.Name(), sizeSufix)
+		}
 
+		if file.IsDir() {
+			dirTree(out, path+string(os.PathSeparator)+file.Name(), printFiles)
+		}
+	}
 	return nil
 }
 

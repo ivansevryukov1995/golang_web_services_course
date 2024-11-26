@@ -7,6 +7,7 @@ import (
 )
 
 func dirTree(out *os.File, path string, printFiles bool) error {
+	var prefix, sizeSufix string
 
 	dir, err := os.Open(path)
 	if err != nil {
@@ -14,24 +15,31 @@ func dirTree(out *os.File, path string, printFiles bool) error {
 	}
 	defer dir.Close()
 
-	f, err := dir.Readdir(-1)
+	files, err := dir.Readdir(-1)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	for i, file := range f {
-		if i == len(f)-1 {
-			fmt.Printf("└───%s\n", file.Name())
-			if file.IsDir() {
-				fmt.Printf("\t")
-				return dirTree(out, path+string(os.PathSeparator)+file.Name(), printFiles)
-			}
+	for i, file := range files {
+		if i == len(files)-1 {
+			prefix = "└───"
 		} else {
-			fmt.Printf("├───%s\n", file.Name())
-			if file.IsDir() {
-				fmt.Printf("\t")
-				return dirTree(out, path+string(os.PathSeparator)+file.Name(), printFiles)
-			}
+			prefix = "├───"
+		}
+
+		if !file.IsDir() && file.Size() != 0 {
+			sizeSufix = fmt.Sprintf("(%db)", file.Size())
+		} else if !file.IsDir() && file.Size() == 0 {
+			sizeSufix = "(empty)"
+		} else {
+			sizeSufix = ""
+		}
+
+		fmt.Printf("%s%s %s\n", prefix, file.Name(), sizeSufix)
+
+		if file.IsDir() {
+			// fmt.Printf("\t")
+			dirTree(out, path+string(os.PathSeparator)+file.Name(), printFiles)
 		}
 
 	}

@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -15,13 +14,13 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 
 	dir, err := os.Open(path)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	defer dir.Close()
 
 	files, err := dir.Readdir(0)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if !printFiles {
@@ -57,13 +56,13 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 
 			dirParent, err := os.Open(parent)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 			defer dirParent.Close()
 
 			filesParent, err := dirParent.Readdir(-1)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 
 			if !printFiles {
@@ -97,7 +96,7 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 		if file.IsDir() {
 			err := dirTree(out, path+string(os.PathSeparator)+file.Name(), printFiles)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
 		}
 	}

@@ -36,6 +36,8 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 	sort.Slice(files, func(i, j int) bool { return files[i].Name() < files[j].Name() })
 
 	for i, file := range files {
+		var tab string
+
 		if i == len(files)-1 {
 			prefix = "└───"
 		} else {
@@ -49,8 +51,6 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 		} else {
 			sizeSufix = ""
 		}
-
-		var tab string
 
 		for j := 0; j < len(strings.Split(path+string(os.PathSeparator)+file.Name(), "\\"))-2; j++ {
 
@@ -92,8 +92,6 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 			}
 
 		}
-
-		// fmt.Printf("%s%s %s\n", prefix, file.Name(), sizeSufix)
 
 		_, err := fmt.Fprintf(out, fmt.Sprintf("%s%s%s%s\n", tab, prefix, file.Name(), sizeSufix))
 

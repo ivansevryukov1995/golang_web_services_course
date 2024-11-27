@@ -2,13 +2,16 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 )
 
-func dirTree(out *os.File, path string, printFiles bool) error {
-	var prefix, sizeSufix string
+func dirTree(out io.Writer, path string, printFiles bool) error {
+	var prefix, sizeSufix, endFile string
 
 	dir, err := os.Open(path)
 	if err != nil {
@@ -16,10 +19,22 @@ func dirTree(out *os.File, path string, printFiles bool) error {
 	}
 	defer dir.Close()
 
-	files, err := dir.Readdir(-1)
+	files, err := dir.Readdir(0)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	if !printFiles {
+		tempFiles := []os.FileInfo{}
+		for _, file := range files {
+			if file.IsDir() {
+				tempFiles = append(tempFiles, file)
+			}
+		}
+		files = tempFiles
+	}
+
+	sort.Slice(files, func(i, j int) bool { return files[i].Name() < files[j].Name() })
 
 	for i, file := range files {
 		if i == len(files)-1 {
@@ -37,19 +52,53 @@ func dirTree(out *os.File, path string, printFiles bool) error {
 		}
 
 		for j := 0; j < len(strings.Split(path+string(os.PathSeparator)+file.Name(), "\\"))-2; j++ {
-			fmt.Printf("\t")
+
+			parent := filepath.Join(strings.Split(path+string(os.PathSeparator)+file.Name(), "\\")[:j+1]...)
+
+			dirParent, err := os.Open(parent)
+			if err != nil {
+				log.Fatal(err)
+			}
+			defer dirParent.Close()
+
+			filesParent, err := dirParent.Readdir(-1)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			if !printFiles {
+				tempFiles := []os.FileInfo{}
+				for _, fileParent := range filesParent {
+					if fileParent.IsDir() {
+						tempFiles = append(tempFiles, fileParent)
+					}
+				}
+				filesParent = tempFiles
+			}
+
+			sort.Slice(filesParent, func(n, m int) bool { return filesParent[n].Name() < filesParent[m].Name() })
+
+			for n, fileParent := range filesParent {
+				if n == len(filesParent)-1 {
+					endFile = fileParent.Name()
+				}
+			}
+
+			if strings.Split(path+string(os.PathSeparator)+file.Name(), "\\")[j+1] != endFile {
+				fmt.Printf("│\t")
+			} else {
+				fmt.Printf("\t")
+			}
+
 		}
 
-		if !printFiles {
-			if file.IsDir() {
-				fmt.Printf("%s%s %s\n", prefix, file.Name(), sizeSufix)
-			}
-		} else {
-			fmt.Printf("%s%s %s\n", prefix, file.Name(), sizeSufix)
-		}
+		fmt.Printf("%s%s %s\n", prefix, file.Name(), sizeSufix)
 
 		if file.IsDir() {
-			dirTree(out, path+string(os.PathSeparator)+file.Name(), printFiles)
+			err := dirTree(out, path+string(os.PathSeparator)+file.Name(), printFiles)
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 	}
 	return nil

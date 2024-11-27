@@ -43,12 +43,14 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 		}
 
 		if !file.IsDir() && file.Size() != 0 {
-			sizeSufix = fmt.Sprintf("(%db)", file.Size())
+			sizeSufix = fmt.Sprintf(" (%db)", file.Size())
 		} else if !file.IsDir() && file.Size() == 0 {
-			sizeSufix = "(empty)"
+			sizeSufix = " (empty)"
 		} else {
 			sizeSufix = ""
 		}
+
+		var tab string
 
 		for j := 0; j < len(strings.Split(path+string(os.PathSeparator)+file.Name(), "\\"))-2; j++ {
 
@@ -84,14 +86,20 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 			}
 
 			if strings.Split(path+string(os.PathSeparator)+file.Name(), "\\")[j+1] != endFile {
-				fmt.Printf("│\t")
+				tab += "│\t"
 			} else {
-				fmt.Printf("\t")
+				tab += "\t"
 			}
 
 		}
 
-		fmt.Printf("%s%s %s\n", prefix, file.Name(), sizeSufix)
+		// fmt.Printf("%s%s %s\n", prefix, file.Name(), sizeSufix)
+
+		_, err := fmt.Fprintf(out, fmt.Sprintf("%s%s%s%s\n", tab, prefix, file.Name(), sizeSufix))
+
+		if err != nil {
+			return err
+		}
 
 		if file.IsDir() {
 			err := dirTree(out, path+string(os.PathSeparator)+file.Name(), printFiles)

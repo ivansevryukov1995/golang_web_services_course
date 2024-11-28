@@ -94,7 +94,6 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 		}
 
 		_, err := fmt.Fprintf(out, fmt.Sprintf("%s%s%s%s\n", tab, prefix, file.Name(), sizeSufix))
-
 		if err != nil {
 			return err
 		}

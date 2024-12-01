@@ -3,24 +3,23 @@ package main
 import (
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 )
 
-func dirTree(out io.Writer, path string, printFiles bool) error {
-	var prefix, sizeSufix, endFile string
-
+func sortFiles(path string, printFiles bool) ([]fs.FileInfo, error) {
 	dir, err := os.Open(path)
 	if err != nil {
-		return err
+		return []fs.FileInfo{}, err
 	}
 	defer dir.Close()
 
 	files, err := dir.Readdir(0)
 	if err != nil {
-		return err
+		return []fs.FileInfo{}, err
 	}
 
 	if !printFiles {
@@ -34,6 +33,16 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 	}
 
 	sort.Slice(files, func(i, j int) bool { return files[i].Name() < files[j].Name() })
+	return files, nil
+}
+
+func dirTree(out io.Writer, path string, printFiles bool) error {
+	var prefix, sizeSufix, endFile string
+
+	files, err := sortFiles(path, printFiles)
+	if err != nil {
+		return err
+	}
 
 	for i, file := range files {
 		var tab string
@@ -56,28 +65,10 @@ func dirTree(out io.Writer, path string, printFiles bool) error {
 
 			parent := filepath.Join(strings.Split(path+string(os.PathSeparator)+file.Name(), "\\")[:j+1]...)
 
-			dirParent, err := os.Open(parent)
+			filesParent, err := sortFiles(parent, printFiles)
 			if err != nil {
 				return err
 			}
-			defer dirParent.Close()
-
-			filesParent, err := dirParent.Readdir(-1)
-			if err != nil {
-				return err
-			}
-
-			if !printFiles {
-				tempFiles := []os.FileInfo{}
-				for _, fileParent := range filesParent {
-					if fileParent.IsDir() {
-						tempFiles = append(tempFiles, fileParent)
-					}
-				}
-				filesParent = tempFiles
-			}
-
-			sort.Slice(filesParent, func(n, m int) bool { return filesParent[n].Name() < filesParent[m].Name() })
 
 			for n, fileParent := range filesParent {
 				if n == len(filesParent)-1 {

@@ -18,9 +18,17 @@ func SingleHash(in, out chan interface{}) {
 
 		go func(out chan interface{}, wg *sync.WaitGroup) {
 			defer wg.Done()
-			out <- DataSignerCrc32(fmt.Sprintf("%v", ch)) + "~" + DataSignerCrc32(md5)
-		}(out, wg)
 
+			rightValue := DataSignerCrc32(md5)
+
+			leftValueCh := make(chan string, 1)
+			go func(ch interface{}, leftValueCh chan string) {
+				leftValueCh <- DataSignerCrc32(fmt.Sprintf("%v", ch))
+			}(ch, leftValueCh)
+			leftValue := <-leftValueCh
+
+			out <- leftValue + "~" + rightValue
+		}(out, wg)
 		defer wg.Wait()
 	}
 }
@@ -113,30 +121,3 @@ func ExecutePipeline(hashSignJobs ...job) {
 		defer wg.Wait()
 	}
 }
-
-// func main() {
-// 	// testExpected := "1173136728138862632818075107442090076184424490584241521304_1696913515191343735512658979631549563179965036907783101867_27225454331033649287118297354036464389062965355426795162684_29568666068035183841425683795340791879727309630931025356555_3994492081516972096677631278379039212655368881548151736_4958044192186797981418233587017209679042592862002427381542_4958044192186797981418233587017209679042592862002427381542"
-// 	// testResult := "NOT_SET"
-// 	// inputData := []int{0, 1, 1, 2, 3, 5, 8}
-// 	inputData := []int{0, 1}
-
-// 	hashSignJobs := []job{
-// 		job(func(in, out chan interface{}) {
-// 			for _, fibNum := range inputData {
-// 				out <- fibNum
-// 			}
-// 		}),
-// 		job(SingleHash),
-// 		job(MultiHash),
-// 		job(CombineResults),
-// 		job(func(in, out chan interface{}) {
-// 			for ch := range in {
-// 				fmt.Println(fmt.Sprintf("%v", ch))
-// 			}
-// 		}),
-// 	}
-
-// 	start := time.Now()
-// 	ExecutePipeline(hashSignJobs...)
-// 	fmt.Println(time.Since(start))
-// }

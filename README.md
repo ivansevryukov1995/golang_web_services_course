@@ -1,3 +1,3 @@
 # Golang web services course
-Этот репозиторий является списком выполненных задач курса с сайта Stepik
-[Source](https://stepik.org/course/187490/syllabus)
+Этот репозиторий является списком выполненных задач [курса](https://stepik.org/course/187490/syllabus) с сайта Stepik
+за авторством Василия Романова.

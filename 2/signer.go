@@ -38,11 +38,6 @@ func SingleHash(in, out chan interface{}) {
 	defer wg.Wait()
 }
 
-type ThCh struct {
-	ind  int
-	data string
-}
-
 func MultiHash(in, out chan interface{}) {
 
 	wg := &sync.WaitGroup{}

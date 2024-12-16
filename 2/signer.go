@@ -12,9 +12,11 @@ func SingleHash(in, out chan interface{}) {
 	rightValueCh := make(chan string, 1)
 
 	for ch := range in {
+		// DataSignerMd5 Считаем вне горутин, чтобы не перегреваться
+		// Параллелим левую и правую часть, так как DataSignerCrc32, считается 1 сек
 		md5 := DataSignerMd5(fmt.Sprintf("%v", ch))
 
-		go func(data string, leftCh chan string) { // Параллелим левую и правую часть
+		go func(data string, leftCh chan string) {
 			leftCh <- DataSignerCrc32(data)
 		}(fmt.Sprintf("%v", ch), leftValueCh)
 
@@ -39,6 +41,8 @@ func MultiHash(in, out chan interface{}) {
 
 		wg := &sync.WaitGroup{}
 
+		//Записывам в канал counter значения crc32(th+data),
+		//а в канал ind значения th
 		for th := 0; th < 6; th++ {
 			wg.Add(1)
 			go func(counter chan string, wg *sync.WaitGroup) {
@@ -56,6 +60,7 @@ func MultiHash(in, out chan interface{}) {
 
 		wg1 := &sync.WaitGroup{}
 
+		//Сортируем значения crc32(th+data) по th и пишем результат канал out
 		wg1.Add(1)
 		go func(wg1 *sync.WaitGroup) {
 			defer wg1.Done()
@@ -83,7 +88,7 @@ func MultiHash(in, out chan interface{}) {
 }
 
 func CombineResults(in, out chan interface{}) {
-	hashResults := make([]string, 0, MaxInputDataLen)
+	hashResults := make([]string, 0, MaxInputDataLen) // Заранее выделяем в памяти слайс для 100 элементов
 
 	for hashResult := range in {
 		hashResults = append(hashResults, (hashResult).(string))

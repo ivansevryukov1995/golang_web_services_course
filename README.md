@@ -18,7 +18,7 @@ ok      hw      0.157s
 ```
 </details>
 
-2. [Асинхроннй пайплайн](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/2)
+2. [Асинхронный пайплайн](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/2)
 <details><summary>Result:</summary>
 
 ```

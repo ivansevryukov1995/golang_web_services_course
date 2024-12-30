@@ -12,8 +12,8 @@ const Th = 6
 func SingleHash(in, out chan interface{}) {
 	wg := &sync.WaitGroup{}
 
-	chanLeft := make(chan string, 1)
-	chanRight := make(chan string, 1)
+	chanLeft := make(chan string)
+	chanRight := make(chan string)
 
 	for ch := range in {
 		// DataSignerMd5 Считаем вне горутин, чтобы не перегреваться
@@ -45,12 +45,12 @@ func MultiHash(in, out chan interface{}) {
 	// Создаем 6 каналов, в которые отправим результаты DataSignerCrc32,
 	// чтобы значение th соответствовало имени канала
 
-	chanTh0 := make(chan string, 1)
-	chanTh1 := make(chan string, 1)
-	chanTh2 := make(chan string, 1)
-	chanTh3 := make(chan string, 1)
-	chanTh4 := make(chan string, 1)
-	chanTh5 := make(chan string, 1)
+	chanTh0 := make(chan string)
+	chanTh1 := make(chan string)
+	chanTh2 := make(chan string)
+	chanTh3 := make(chan string)
+	chanTh4 := make(chan string)
+	chanTh5 := make(chan string)
 
 	chanels := map[string]chan string{
 		"chanTh0": chanTh0,

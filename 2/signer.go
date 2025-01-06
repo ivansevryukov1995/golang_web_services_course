@@ -52,7 +52,7 @@ func MultiHash(in, out chan interface{}) {
 	chanTh4 := make(chan string)
 	chanTh5 := make(chan string)
 
-	chanels := map[string]chan string{
+	channels := map[string]chan string{
 		"chanTh0": chanTh0,
 		"chanTh1": chanTh1,
 		"chanTh2": chanTh2,
@@ -65,7 +65,7 @@ func MultiHash(in, out chan interface{}) {
 		for th := 0; th < Th; th++ {
 			go func(th string, data string, chanTh chan string) {
 				chanTh <- DataSignerCrc32(th + data)
-			}(fmt.Sprintf("%v", th), fmt.Sprintf("%v", ch), chanels["chanTh"+fmt.Sprintf("%v", th)])
+			}(fmt.Sprintf("%v", th), fmt.Sprintf("%v", ch), channels["chanTh"+fmt.Sprintf("%v", th)])
 		}
 
 		wg.Add(1)

@@ -42,36 +42,27 @@ func MultiHash(in, out chan interface{}) {
 
 	wg := &sync.WaitGroup{}
 
-	// Создаем 6 каналов, в которые отправим результаты DataSignerCrc32,
-	// чтобы значение th соответствовало имени канала
-
-	chanTh0 := make(chan string)
-	chanTh1 := make(chan string)
-	chanTh2 := make(chan string)
-	chanTh3 := make(chan string)
-	chanTh4 := make(chan string)
-	chanTh5 := make(chan string)
-
-	channels := map[string]chan string{
-		"chanTh0": chanTh0,
-		"chanTh1": chanTh1,
-		"chanTh2": chanTh2,
-		"chanTh3": chanTh3,
-		"chanTh4": chanTh4,
-		"chanTh5": chanTh5,
+	channels := make([]chan string, Th) // Создаем слайс каналов размером Th
+	for i := range channels {
+		channels[i] = make(chan string)
 	}
 
 	for ch := range in {
 		for th := 0; th < Th; th++ {
 			go func(th string, data string, chanTh chan string) {
 				chanTh <- DataSignerCrc32(th + data)
-			}(fmt.Sprintf("%v", th), fmt.Sprintf("%v", ch), channels["chanTh"+fmt.Sprintf("%v", th)])
+			}(fmt.Sprintf("%v", th), fmt.Sprintf("%v", ch), channels[th])
 		}
+
+		res := make([]string, Th)
 
 		wg.Add(1)
 		go func(out chan interface{}, wg *sync.WaitGroup) {
 			defer wg.Done()
-			out <- <-chanTh0 + <-chanTh1 + <-chanTh2 + <-chanTh3 + <-chanTh4 + <-chanTh5
+			for i := range channels {
+				res[i] = <-channels[i]
+			}
+			out <- strings.Join(res, "")
 		}(out, wg)
 	}
 

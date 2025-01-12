@@ -57,13 +57,13 @@ func MultiHash(in, out chan interface{}) {
 		res := make([]string, Th)
 
 		wg.Add(1)
-		go func(out chan interface{}, wg *sync.WaitGroup) {
+		go func(out chan interface{}, wg *sync.WaitGroup, res []string) {
 			defer wg.Done()
 			for i := range channels {
 				res[i] = <-channels[i]
 			}
 			out <- strings.Join(res, "")
-		}(out, wg)
+		}(out, wg, res)
 	}
 
 	defer wg.Wait()

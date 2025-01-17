@@ -42,7 +42,7 @@ func MultiHash(in, out chan interface{}) {
 
 	wg := &sync.WaitGroup{}
 
-	channels := make([]chan string, Th) // Создаем слайс каналов размером Th
+	channels := make([]chan string, Th) // Создадим Th именованных каналов, чтобы получить отсортированный результат
 	for i := range channels {
 		channels[i] = make(chan string)
 	}

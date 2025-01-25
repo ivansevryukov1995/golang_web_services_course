@@ -1,7 +1,7 @@
 <a id='anchor'></a>
 # Golang web services course
 Этот репозиторий является списком выполненных заданий [курса](https://stepik.org/course/187490/syllabus) с сайта Stepik
-за авторством Василия Романова.
+за авторством [Василия Романова](https://github.com/rvasily).
 
 <img src=1\testdata\project\gopher.png height="200" width="200">
 

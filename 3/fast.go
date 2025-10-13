@@ -14,5 +14,6 @@ func FastSearch(out io.Writer) {
 		перечитайте еще раз задание
 		!!! !!! !!!
 	*/
+
 	SlowSearch(out)
 }

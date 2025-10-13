@@ -12,20 +12,21 @@ const Th = 6
 func SingleHash(in, out chan interface{}) {
 	wg := &sync.WaitGroup{}
 
-	chanLeft := make(chan string)
-	chanRight := make(chan string)
-
 	for ch := range in {
+		chanLeft := make(chan string)
+		chanRight := make(chan string)
 		// DataSignerMd5 Считаем вне горутин, чтобы не перегреваться
 		// Параллелим левую и правую часть, так как DataSignerCrc32, считается 1 сек
 		md5 := DataSignerMd5(fmt.Sprintf("%v", ch))
 
 		go func(data string, chanLeft chan string) {
 			chanLeft <- DataSignerCrc32(data)
+			close(chanLeft)
 		}(fmt.Sprintf("%v", ch), chanLeft)
 
 		go func(data string, chanRight chan string) {
 			chanRight <- DataSignerCrc32(data)
+			close(chanRight)
 		}(md5, chanRight)
 
 		wg.Add(1)
@@ -42,15 +43,16 @@ func MultiHash(in, out chan interface{}) {
 
 	wg := &sync.WaitGroup{}
 
-	channels := make([]chan string, Th) // Создадим Th именованных каналов, чтобы получить отсортированный результат
-	for i := range channels {
-		channels[i] = make(chan string)
-	}
-
 	for ch := range in {
+		channels := make([]chan string, Th) // Создадим Th именованных каналов, чтобы получить отсортированный результат
+		for i := range channels {
+			channels[i] = make(chan string)
+		}
+
 		for th := 0; th < Th; th++ {
 			go func(th string, data string, chanTh chan string) {
 				chanTh <- DataSignerCrc32(th + data)
+				close(chanTh)
 			}(fmt.Sprintf("%v", th), fmt.Sprintf("%v", ch), channels[th])
 		}
 

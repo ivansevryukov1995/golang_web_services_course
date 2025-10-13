@@ -51,3 +51,12 @@ ok coursera/hw3 3.897s
 
 Примечание:
 * easyjson основан на рефлекции и не может работать с пакетом main. Для генерации кода вам необходимо вынести вашу структуру в отдельный пакет, сгенерить там код, потом забрать его в main
+
+/*
+Things you can do:
+1) Check your coverage with this command:
+    go test -cover
+
+2) Get your coverage in the browser with this command:
+    go test -coverprofile=coverage.out && go tool cover -html=coverage.out
+*/

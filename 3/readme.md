@@ -40,11 +40,20 @@ ok coursera/hw3 3.897s
 * `go test -v` - чтобы проверить что ничего не сломалось
 * `go test -bench . -benchmem` - для просмотра производительности
 * `go tool pprof -http=:8083 /path/ho/bin /path/to/out` - веб-интерфейс для pprof, пользуйтесь им для поиска горячих мест. Не забывайте, что у вас 2 режиме - cpu и mem, там разные out-файлы.
-* `go test -bench . -benchmem -cpuprofile=cpu.out -memprofile=mem.out -memprofilerate=1 main_test.go`
-* `go tool pprof main.test.exe cpu.out`
-* `go tool pprof main.test.exe mem.out`
+* `go test -bench . -benchmem -cpuprofile=cpu.out -memprofile=mem.out -memprofilerate=1`
+* `go tool pprof 3.test.exe cpu.out`
+* `go tool pprof 3.test.exe mem.out`
 * `go get github.com/uber/go-torch`
-* `go-torch main.test.exe cpu.out`
+* `go-torch 3.test.exe cpu.out`
+* `go tool pprof -svg -inuse_space 3.test.exe mem.out > mem_is.svg`
+* `go tool pprof -svg -inuse_objects 3.test.exe mem.out > mem_io.svg`
+* `go tool pprof -svg 3.test.exe cpu.out > cpu.svg`
+* `go tool pprof -png 3.test.exe cpu.out > cpu.png`
+
+Внутри pprof
+* `inuse_objects, показывающий количество объектов в памяти`
+* `alloc_space, показывающий, сколько памяти было выделено с момента запуска программы.`
+
 
 Советы:
 * Смотрите где мы аллоцируем память
@@ -56,12 +65,3 @@ ok coursera/hw3 3.897s
 
 Примечание:
 * easyjson основан на рефлекции и не может работать с пакетом main. Для генерации кода вам необходимо вынести вашу структуру в отдельный пакет, сгенерить там код, потом забрать его в main
-
-/*
-Things you can do:
-1) Check your coverage with this command:
-    go test -cover
-
-2) Get your coverage in the browser with this command:
-    go test -coverprofile=coverage.out && go tool cover -html=coverage.out
-*/

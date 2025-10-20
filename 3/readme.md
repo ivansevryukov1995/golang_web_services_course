@@ -40,6 +40,11 @@ ok coursera/hw3 3.897s
 * `go test -v` - чтобы проверить что ничего не сломалось
 * `go test -bench . -benchmem` - для просмотра производительности
 * `go tool pprof -http=:8083 /path/ho/bin /path/to/out` - веб-интерфейс для pprof, пользуйтесь им для поиска горячих мест. Не забывайте, что у вас 2 режиме - cpu и mem, там разные out-файлы.
+* `go test -bench . -benchmem -cpuprofile=cpu.out -memprofile=mem.out -memprofilerate=1 main_test.go`
+* `go tool pprof main.test.exe cpu.out`
+* `go tool pprof main.test.exe mem.out`
+* `go get github.com/uber/go-torch`
+* `go-torch main.test.exe cpu.out`
 
 Советы:
 * Смотрите где мы аллоцируем память

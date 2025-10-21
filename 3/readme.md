@@ -39,21 +39,20 @@ ok coursera/hw3 3.897s
 Запуск:
 * `go test -v` - чтобы проверить что ничего не сломалось
 * `go test -bench . -benchmem` - для просмотра производительности
-* `go tool pprof -http=:8083 /path/ho/bin /path/to/out` - веб-интерфейс для pprof, пользуйтесь им для поиска горячих мест. Не забывайте, что у вас 2 режиме - cpu и mem, там разные out-файлы.
 * `go test -bench . -benchmem -cpuprofile=cpu.out -memprofile=mem.out -memprofilerate=1`
-* `go tool pprof 3.test.exe cpu.out`
-* `go tool pprof 3.test.exe mem.out`
-* `go get github.com/uber/go-torch`
-* `go-torch 3.test.exe cpu.out`
-* `go tool pprof -svg -inuse_space 3.test.exe mem.out > mem_is.svg`
-* `go tool pprof -svg -inuse_objects 3.test.exe mem.out > mem_io.svg`
-* `go tool pprof -svg 3.test.exe cpu.out > cpu.svg`
-* `go tool pprof -png 3.test.exe cpu.out > cpu.png`
+* `go tool pprof -http=:8083 3.test.exe cpu.out` - веб-интерфейс для pprof, пользуйтесь им для поиска горячих мест. Не забывайте, что у вас 2 режиме - cpu и mem, там разные out-файлы.
+* `go tool pprof 3.test.exe cpu.out` - зайти в интерактивную консоль pprof для CPU-профиля
+* `go tool pprof 3.test.exe mem.out` - зайти в интерактивную консоль pprof для памяти
+* `go tool pprof -svg -inuse_space 3.test.exe mem.out > mem_is.svg` - сохранить SVG-граф занятой памяти
+* `go tool pprof -svg -inuse_objects 3.test.exe mem.out > mem_io.svg` - сохранить SVG-граф по количеству живых объектов
+* `go tool pprof -svg 3.test.exe cpu.out > cpu.svg` -  сохранить SVG-граф CPU-профиля
+* `go tool pprof -png 3.test.exe cpu.out > cpu.png` - сохранить PNG-граф CPU-профиля
 
 Внутри pprof
+* `inuse_space — количество живых байт`
 * `inuse_objects, показывающий количество объектов в памяти`
 * `alloc_space, показывающий, сколько памяти было выделено с момента запуска программы.`
-
+* `alloc_objects — количество аллоцированных объектов`
 
 Советы:
 * Смотрите где мы аллоцируем память

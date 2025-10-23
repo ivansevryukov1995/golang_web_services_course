@@ -36,4 +36,304 @@ ok      2       2.565s
 ```
 </details>
 
+3. [Оптимизация кода](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/3)
+<details>
+<summary>Result:</summary>
+
+<details>
+<summary>Замена regexp.MatchString на strings.Contains:</summary>
+
+
+```
+// if ok, err := regexp.MatchString("Android", browser); ok && err == nil 
+if strings.Contains(browser, "Android") 
+и
+// if ok, err := regexp.MatchString("MSIE", browser); ok && err == nil 
+if strings.Contains(browser, "MSIE") 
+
+```
+Статистика
+
+```
+BenchmarkSlow-12               3         475009367 ns/op        20406149 B/op     182837 allocs/op
+BenchmarkFast-12               8         136187475 ns/op         6216179 B/op      46750 allocs/op
+```
+
+</details>
+
+<details>
+<summary>Убрал map users. Все значения одновременно не нужны:</summary>
+
+
+```
+// users := make([]map[string]interface{}, 0)
+
+// for _, line := range lines {
+// 	user := make(map[string]interface{})
+// 	// fmt.Printf("%v %v\n", err, line)
+// 	err := json.Unmarshal([]byte(line), &user)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	users = append(users, user)
+// }
+
+// for i, user := range users {
+user := make(map[string]interface{})
+for i, line := range lines {
+
+    err := json.Unmarshal([]byte(line), &user)
+    if err != nil {
+        panic(err)
+    }
+    ...
+```
+Статистика
+
+```
+BenchmarkSlow-12               3         469516967 ns/op        20406941 B/op     182831 allocs/op
+BenchmarkFast-12               9         127068733 ns/op         5892163 B/op      43753 allocs/op
+```
+
+</details>
+
+<details>
+<summary>Убрал преобразования типов, которые можно избежать, добавив struct User:</summary>
+
+
+```
+type User struct {
+	Browsers []string `json:"browsers"`
+	Company  string   `json:"company"`
+	Country  string   `json:"country"`
+	Email    string   `json:"email"`
+	Job      string   `json:"job"`
+	Name     string   `json:"name"`
+	Phone    string   `json:"phone"`
+}
+...
+// user := make(map[string]interface{})
+user := &User{}
+...
+// browsers, ok := user["browsers"].([]interface{})
+browsers := user.Browsers
+// if !ok {
+// 	// log.Println("cant cast browsers")
+// 	continue
+// }
+
+for _, browser := range browsers {
+// browser, ok := browserRaw.(string)
+
+// if !ok {
+// 	// log.Println("cant cast browser to string")
+// 	continue
+// }
+...
+for _, browser := range browsers {
+// browser, ok := browserRaw.(string)
+// if !ok {
+// 	// log.Println("cant cast browser to string")
+// 	continue
+// }
+...
+// email := r.ReplaceAllString(user["email"].(string), " [at] ")
+// foundUsers += fmt.Sprintf("[%d] %s <%s>\n", i, user["name"], email)
+email := r.ReplaceAllString(user.Email, " [at] ")
+foundUsers += fmt.Sprintf("[%d] %s <%s>\n", i, user.Name, email)
+...
+    
+```
+Статистика
+
+```
+BenchmarkSlow-12               3         464770200 ns/op        20357064 B/op     182835 allocs/op
+BenchmarkFast-12              22          50302523 ns/op         5476525 B/op      16835 allocs/op
+```
+
+</details>
+
+<details>
+<summary>Убрал дублирующий range по browsers. Производительность не увеличилась:</summary>
+
+```
+// browsers := user.Browsers
+
+// for _, browser := range browsers {
+// 	if strings.Contains(browser, "Android") {
+// 		isAndroid = true
+// 		notSeenBefore := true
+// 		for _, item := range seenBrowsers {
+// 			if item == browser {
+// 				notSeenBefore = false
+// 			}
+// 		}
+// 		if notSeenBefore {
+// 			// log.Printf("SLOW New browser: %s, first seen: %s", browser, user["name"])
+// 			seenBrowsers = append(seenBrowsers, browser)
+// 			uniqueBrowsers++
+// 		}
+// 	}
+// }
+
+// for _, browser := range browsers {
+// 	if strings.Contains(browser, "MSIE") {
+// 		isMSIE = true
+// 		notSeenBefore := true
+// 		for _, item := range seenBrowsers {
+// 			if item == browser {
+// 				notSeenBefore = false
+// 			}
+// 		}
+// 		if notSeenBefore {
+// 			// log.Printf("SLOW New browser: %s, first seen: %s", browser, user["name"])
+// 			seenBrowsers = append(seenBrowsers, browser)
+// 			uniqueBrowsers++
+// 		}
+// 	}
+// }
+
+for j := range user.Browsers {
+    isAndroid = isAndroid || strings.Contains(user.Browsers[j], "Android")
+    isMSIE = isMSIE || strings.Contains(user.Browsers[j], "MSIE")
+
+    if strings.Contains(user.Browsers[j], "Android") || strings.Contains(user.Browsers[j], "MSIE") {
+        notSeenBefore := true
+        for _, item := range seenBrowsers {
+            if item == user.Browsers[j] {
+                notSeenBefore = false
+            }
+        }
+        if notSeenBefore {
+            // log.Printf("SLOW New browser: %s, first seen: %s", browser, user["name"])
+            seenBrowsers = append(seenBrowsers, user.Browsers[j])
+            uniqueBrowsers++
+        }
+    }
+}
+...
+```
+Статистика
+
+```
+BenchmarkSlow-12               2         522537750 ns/op        20333724 B/op     182836 allocs/op
+BenchmarkFast-12              22          52342009 ns/op         5479009 B/op      16835 allocs/op
+```
+
+</details>
+
+<details>
+<summary>Заменил чтение всего файла io.ReadAll чтением построчно bufio.NewScanner:</summary>
+
+```
+// fileContents, err := io.ReadAll(file)
+	// if err != nil {
+	// 	panic(err)
+	// }
+// lines := strings.Split(string(fileContents), "\n")
+for scanner.Scan() {
+    err := json.Unmarshal([]byte(scanner.Text()), &user)
+...
+}
+```
+Статистика
+
+```
+BenchmarkSlow-12               3         476512567 ns/op        20243784 B/op     182810 allocs/op
+BenchmarkFast-12              21          52663105 ns/op         2233568 B/op      17803 allocs/op
+```
+</details>
+
+<details>
+<summary>Заменил []byte(scanner.Text()) на scanner.Bytes():</summary>
+
+```
+///err := json.Unmarshal([]byte(scanner.Text()), &user)
+err := json.Unmarshal(scanner.Bytes(), &user)
+
+```
+Статистика
+
+```
+BenchmarkSlow-12               3         478741333 ns/op        20369272 B/op     182826 allocs/op
+BenchmarkFast-12              24          49166408 ns/op         1015203 B/op      15793 allocs/op
+```
+
+</details>
+
+<details>
+<summary>Заменил r.ReplaceAllString на strings.ReplaceAll:</summary>
+
+```
+// r := regexp.MustCompile("@")
+// email := r.ReplaceAllString(user.Email, " [at] ")
+email := strings.ReplaceAll(user.Email, "@", " [at] ")
+
+```
+Статистика
+
+```
+BenchmarkSlow-12               3         475121533 ns/op        20346645 B/op     182824 allocs/op
+BenchmarkFast-12              24          48949983 ns/op          970686 B/op      15493 allocs/op
+```
+
+</details>
+
+<details>
+<summary>Заменил json.Unmarshal на сгенерированный метод UnmarshalJSON кодогенерацией из easyjson:</summary>
+
+```
+// err := json.Unmarshal(, &user)
+err := user.UnmarshalJSON(scanner.Bytes())
+```
+Статистика
+
+```
+BenchmarkSlow-12               2         534617250 ns/op        20447088 B/op     182847 allocs/op
+BenchmarkFast-12              55          26175882 ns/op          735485 B/op      10486 allocs/op
+```
+
+</details>
+
+<details>
+<summary>Выставил флаг json:"-" для ненужных полей структуры User:</summary>
+
+```
+type User struct {
+	Browsers []string `json:"browsers"`
+	Company  string   `json:"-"`
+	Country  string   `json:"-"`
+	Email    string   `json:"email"`
+	Job      string   `json:"-"`
+	Name     string   `json:"name"`
+	Phone    string   `json:"-"`
+}
+```
+Статистика
+
+```
+BenchmarkSlow-12              60          21951848 ns/op        20437123 B/op     182855 allocs/op
+BenchmarkFast-12             736           1543819 ns/op          676168 B/op       6482 allocs/op
+```
+
+</details>
+<details>
+<summary>Заменил конкатенацию строк на strings.Builder:</summary>
+
+```
+//foundUsers += fmt.Sprintf("[%d] %s <%s>\n", counter, user.Name, email)
+foundUsers.WriteString(fmt.Sprintf("[%d] %s <%s>\n", counter, user.Name, email))
+```
+Статистика
+
+```
+BenchmarkSlow-12              54          24577407 ns/op        20480195 B/op     182861 allocs/op
+BenchmarkFast-12             628           2131925 ns/op          505364 B/op       6410 allocs/op
+```
+
+</details>
+</details>
+
 [Вверх](#anchor)
+
+

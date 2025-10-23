@@ -44,10 +44,12 @@ func MultiHash(in, out chan interface{}) {
 	wg := &sync.WaitGroup{}
 
 	for ch := range in {
-		channels := make([]chan string, Th) // Создадим Th именованных каналов, чтобы получить отсортированный результат
-		for i := range channels {
-			channels[i] = make(chan string)
-		}
+		// channels := make([]chan string, Th) // Создадим Th именованных каналов, чтобы получить отсортированный результат
+		// for i := range channels {
+		// 	channels[i] = make(chan string)
+		// }
+
+		channels := make(chan chan string, Th)
 
 		for th := 0; th < Th; th++ {
 			go func(th string, data string, chanTh chan string) {

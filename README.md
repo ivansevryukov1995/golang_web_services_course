@@ -334,6 +334,13 @@ BenchmarkFast-12             628           2131925 ns/op          505364 B/op   
 </details>
 </details>
 
+4. [Тестовое покрытие для сервиса поиска по XML](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/4)
+<details><summary>Result:</summary>
+
+```
+PASS
+ok      2       2.565s
+```
+</details>
+
 [Вверх](#anchor)
-
-

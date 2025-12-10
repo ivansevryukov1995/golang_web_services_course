@@ -334,6 +334,28 @@ BenchmarkFast-12             628           2131925 ns/op          505364 B/op   
 </details>
 </details>
 
+4. [Тестовое покрытие для сервиса поиска по XML](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/4)
+<details><summary>Result:</summary>
+
+```
+=== RUN   TestFindUsers
+--- PASS: TestFindUsers (0.01s)
+=== RUN   TestFindUsersErrorJSON
+--- PASS: TestFindUsersErrorJSON (0.00s)
+=== RUN   TestFindUsersBrokenResultJSON
+--- PASS: TestFindUsersBrokenResultJSON (0.00s)
+=== RUN   TestFindUsersFatalError
+--- PASS: TestFindUsersFatalError (0.00s)
+=== RUN   TestFindUsersTimeOut
+--- PASS: TestFindUsersTimeOut (2.00s)
+=== RUN   TestFindUsersClientUnknownError
+--- PASS: TestFindUsersClientUnknownError (0.00s)
+PASS
+coverage: 100.0% of statements
+ok      hw4     2.864s
+```
+[HTML-отчет](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/4/cover.html)
+</details>
+
+
 [Вверх](#anchor)
-
-

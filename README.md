@@ -8,7 +8,7 @@
 1. [Программа вывода дерева файлов](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/1)
 <details><summary>Result:</summary>
 
-```
+```bash
 === RUN   TestTreeFull
 --- PASS: TestTreeFull (0.00s)
 === RUN   TestTreeDir
@@ -21,7 +21,7 @@ ok      hw      0.157s
 2. [Асинхронный пайплайн](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/2)
 <details><summary>Result:</summary>
 
-```
+```bash
 === RUN   TestByIlia
 collected 3
 collected 9
@@ -43,14 +43,12 @@ ok      2       2.565s
 <details>
 <summary>Замена regexp.MatchString на strings.Contains:</summary>
 
-
-```
+```go
 // if ok, err := regexp.MatchString("Android", browser); ok && err == nil 
 if strings.Contains(browser, "Android") 
 и
 // if ok, err := regexp.MatchString("MSIE", browser); ok && err == nil 
 if strings.Contains(browser, "MSIE") 
-
 ```
 Статистика
 
@@ -58,14 +56,12 @@ if strings.Contains(browser, "MSIE")
 BenchmarkSlow-12               3         475009367 ns/op        20406149 B/op     182837 allocs/op
 BenchmarkFast-12               8         136187475 ns/op         6216179 B/op      46750 allocs/op
 ```
-
 </details>
 
 <details>
 <summary>Убрал map users. Все значения одновременно не нужны:</summary>
 
-
-```
+```go
 // users := make([]map[string]interface{}, 0)
 
 // for _, line := range lines {
@@ -100,8 +96,7 @@ BenchmarkFast-12               9         127068733 ns/op         5892163 B/op   
 <details>
 <summary>Убрал преобразования типов, которые можно избежать, добавив struct User:</summary>
 
-
-```
+```go
 type User struct {
 	Browsers []string `json:"browsers"`
 	Company  string   `json:"company"`
@@ -150,13 +145,12 @@ foundUsers += fmt.Sprintf("[%d] %s <%s>\n", i, user.Name, email)
 BenchmarkSlow-12               3         464770200 ns/op        20357064 B/op     182835 allocs/op
 BenchmarkFast-12              22          50302523 ns/op         5476525 B/op      16835 allocs/op
 ```
-
 </details>
 
 <details>
 <summary>Убрал дублирующий range по browsers. Производительность не увеличилась:</summary>
 
-```
+```go
 // browsers := user.Browsers
 
 // for _, browser := range browsers {
@@ -225,7 +219,7 @@ BenchmarkFast-12              22          52342009 ns/op         5479009 B/op   
 <details>
 <summary>Заменил чтение всего файла io.ReadAll чтением построчно bufio.NewScanner:</summary>
 
-```
+```go
 // fileContents, err := io.ReadAll(file)
 	// if err != nil {
 	// 	panic(err)
@@ -247,7 +241,7 @@ BenchmarkFast-12              21          52663105 ns/op         2233568 B/op   
 <details>
 <summary>Заменил []byte(scanner.Text()) на scanner.Bytes():</summary>
 
-```
+```go
 ///err := json.Unmarshal([]byte(scanner.Text()), &user)
 err := json.Unmarshal(scanner.Bytes(), &user)
 
@@ -264,7 +258,7 @@ BenchmarkFast-12              24          49166408 ns/op         1015203 B/op   
 <details>
 <summary>Заменил r.ReplaceAllString на strings.ReplaceAll:</summary>
 
-```
+```go
 // r := regexp.MustCompile("@")
 // email := r.ReplaceAllString(user.Email, " [at] ")
 email := strings.ReplaceAll(user.Email, "@", " [at] ")
@@ -282,7 +276,7 @@ BenchmarkFast-12              24          48949983 ns/op          970686 B/op   
 <details>
 <summary>Заменил json.Unmarshal на сгенерированный метод UnmarshalJSON кодогенерацией из easyjson:</summary>
 
-```
+```go
 // err := json.Unmarshal(, &user)
 err := user.UnmarshalJSON(scanner.Bytes())
 ```
@@ -298,7 +292,7 @@ BenchmarkFast-12              55          26175882 ns/op          735485 B/op   
 <details>
 <summary>Выставил флаг json:"-" для ненужных полей структуры User:</summary>
 
-```
+```go
 type User struct {
 	Browsers []string `json:"browsers"`
 	Company  string   `json:"-"`
@@ -320,7 +314,7 @@ BenchmarkFast-12             736           1543819 ns/op          676168 B/op   
 <details>
 <summary>Заменил конкатенацию строк на strings.Builder:</summary>
 
-```
+```go
 //foundUsers += fmt.Sprintf("[%d] %s <%s>\n", counter, user.Name, email)
 foundUsers.WriteString(fmt.Sprintf("[%d] %s <%s>\n", counter, user.Name, email))
 ```
@@ -337,7 +331,7 @@ BenchmarkFast-12             628           2131925 ns/op          505364 B/op   
 4. [Тестовое покрытие для сервиса поиска по XML](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/4)
 <details><summary>Result:</summary>
 
-```
+```bash
 === RUN   TestFindUsers
 --- PASS: TestFindUsers (0.01s)
 === RUN   TestFindUsersErrorJSON
@@ -356,6 +350,56 @@ ok      hw4     2.864s
 ```
 [HTML-отчет](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/4/cover.html)
 </details>
+
+5. [Веб-фреймворк на основе кодогенерации](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/5)
+<details><summary>Result:</summary>
+
+```bash
+```
+</details>
+
+6. [Универсальный сервис просмотра содержимого БД](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/6)
+<details><summary>Result:</summary>
+```
+```
+</details>
+
+7. [Асинхронная система логирования](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/7)
+<details><summary>Result:</summary>
+```
+```
+</details>
+
+8. [Заполнение полей структуры через рефлексию](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/8)
+<details><summary>Result:</summary>
+```
+```
+</details>
+
+9. [Архитектура типового приложения](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/9)
+<details><summary>Result:</summary>
+```
+```
+</details>
+
+10. [Телеграм бот](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/10)
+<details><summary>Result:</summary>
+```
+```
+</details>
+
+11. [Маркетплейс на основе GraphQL](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/11)
+<details><summary>Result:</summary>
+```
+```
+</details>
+
+12. [Многопользовательская MUD на основе асинхрона](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/12)
+<details><summary>Result:</summary>
+```
+```
+</details>
+
 
 
 [Вверх](#anchor)

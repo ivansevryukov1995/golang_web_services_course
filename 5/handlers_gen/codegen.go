@@ -9,25 +9,105 @@ import (
 	"log"
 	"os"
 	"strings"
+	"text/template"
 )
 
-type receiverCodoGen struct {
-	receivers map[string][]*apiMethod
+var (
+	packageTpl = template.Must(template.New("packageTpl").Parse(
+		`package {{.NamePackage}}
+	
+import (
+	"encoding/json"
+	"errors"
+	"io"
+	"net/http"
+)
+
+`))
+	serveTpl = template.Must(template.New("serveTpl").Parse(
+		`{{range .Receivers}}func (h *{{.Receiver}}) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path { {{range .Routes}}
+	case "{{.Meta.URL}}":
+		h.handler{{.Method.Name.Name}}(w, r){{end}}
+	default:
+		http.Error(w, "unknown method", http.StatusNotFound)
+	}
 }
 
-type parametrsCodoGen struct {
-	parametrs map[string][]*ast.StructType
+{{end}}`))
+	authTpl = `if r.Header.Get("X-Auth") != "100500" {
+		w.Header().Set("WWW-Authenticate", "Basic realm='api'")
+		http.Error(w, "unauthorized", http.StatusForbidden)
+		return
+	}`
+	apiErrorCheckTpl = `if err != nil {
+		var ae *ApiError
+		if errors.As(err, ae) {
+			http.Error(w, err.Error(), ae.HTTPStatus)
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}`
+	handlerTpl = template.Must(template.New("handlerTpl").
+			Funcs(template.FuncMap{
+			"authTpl":             func() string { return authTpl },
+			"apiErrorCheckTpl":    func() string { return apiErrorCheckTpl },
+			"getNameParamsStruct": getNameParamsStruct,
+		}).
+		Parse(
+			`{{range $rec := .Receivers}}{{range $rts := $rec.Routes}}func (h *{{$rec.Receiver}}) handler{{$rts.Method.Name.Name}}(w http.ResponseWriter, r *http.Request) {
+	{{if $rts.Meta.Auth}}{{authTpl}}
+	{{end}}
+	{{if eq $rts.Meta.Method "POST"}}values := r.URL.Query(){{else}}body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	var params {{$rts.Method.Type.Params.List | getNameParamsStruct}}
+	if err := json.Unmarshal(body, &params); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if params.Login == "" {
+		http.Error(w, "login must me not empty", http.StatusBadRequest)
+		return
+	}{{end}}
+
+	res, err := h.{{$rts.Method.Name.Name}}(r.Context(), params)
+	{{apiErrorCheckTpl}}
 }
 
-type apiMethod struct {
-	method        *ast.FuncDecl
-	commentMethod *CommentJSON
+{{end}}{{end}}`))
+)
+
+type PackageTmpl struct {
+	NamePackage string
 }
 
-type CommentJSON struct {
+type ServeTmpl struct {
+	Receiver string
+	Routes   []*Route
+}
+
+type Route struct {
+	Method *ast.FuncDecl
+	Meta   *RouteMeta
+}
+
+type RouteMeta struct {
 	URL    string `json:"url"`
 	Auth   bool   `json:"auth"`
 	Method string `json:"method"`
+}
+
+type ValidTmpl struct {
+	Struct *ast.TypeSpec
+}
+
+func getNameParamsStruct(params []*ast.Field) string {
+	return fmt.Sprint(params[1].Type)
 }
 
 func isMethod(fn *ast.FuncDecl) bool {
@@ -52,37 +132,11 @@ func isMethod(fn *ast.FuncDecl) bool {
 	return true
 }
 
-func isStructParams(g *ast.GenDecl) {
-	for _, spec := range g.Specs {
-		currType, ok := spec.(*ast.TypeSpec)
-		if !ok {
-			fmt.Printf("SKIP %#T is not ast.TypeSpec\n", spec)
-			continue
-		}
-
-		currStruct, ok := currType.Type.(*ast.StructType)
-		if !ok {
-			fmt.Printf("SKIP %#T is not ast.StructType\n", currStruct)
-			continue
-		}
-
-		// if g.Doc == nil {
-		// 	fmt.Printf("SKIP struct %#v doesnt have comments\n", currType.Name.Name)
-		// 	continue
-		// }
-
-		// needCodegen := false
-		// for _, comment := range g.Doc.List {
-		// 	needCodegen = needCodegen || strings.HasPrefix(comment.Text, "// cgen: binpack")
-		// }
-		// if !needCodegen {
-		// 	fmt.Printf("SKIP struct %#v doesnt have cgen mark\n", currType.Name.Name)
-		// 	continue SPECS_LOOP
-		// }
+func createdMethodList(fn *ast.FuncDecl, receiverList *[]ServeTmpl) {
+	if !isMethod(fn) {
+		return
 	}
-}
 
-func createdMethodList(fn *ast.FuncDecl, receiverList *receiverCodoGen) {
 	nameReceiver := fmt.Sprint(fn.Recv.List[0].Type.(*ast.StarExpr).X)
 
 	var sb strings.Builder
@@ -95,51 +149,51 @@ func createdMethodList(fn *ast.FuncDecl, receiverList *receiverCodoGen) {
 	}
 	resultComment := sb.String()
 
-	resultJSON := &CommentJSON{}
+	resultJSON := &RouteMeta{}
 	if err := json.Unmarshal([]byte(resultComment), resultJSON); err != nil {
 		log.Fatal(err)
 	}
-	receiverList.receivers[nameReceiver] = append(receiverList.receivers[nameReceiver],
-		&apiMethod{
-			method:        fn,
-			commentMethod: resultJSON,
-		})
-}
 
-func generateServeHTTP(out *os.File, receiverList *receiverCodoGen) {
-	for nameReceiver, elem := range receiverList.receivers {
-		fmt.Println(nameReceiver)
-
-		fmt.Fprintln(out, "func (h *"+nameReceiver+") ServeHTTP(w http.ResponseWriter, r *http.Request) {")
-		fmt.Fprintln(out, "\tswitch r.URL.Path {")
-
-		for _, v := range elem {
-			fmt.Fprintln(out, "\tcase \""+v.commentMethod.URL+"\":")
-			fmt.Fprintln(out, "\t\th.handler"+v.method.Name.Name+"(w, r)")
-
-			fmt.Println(v.method.Name.Name)
-			fmt.Println(v.commentMethod)
-			fmt.Printf("parametrs %s\n", v.method.Type.Params.List[1].Type)
+	for i := range *receiverList {
+		if (*receiverList)[i].Receiver == nameReceiver {
+			(*receiverList)[i].Routes = append(
+				(*receiverList)[i].Routes,
+				&Route{
+					Method: fn,
+					Meta:   resultJSON,
+				})
+			return
 		}
-
-		fmt.Fprintln(out, "\tdefault:")
-		fmt.Fprintln(out, "\t\thttp.Error(w, \"Not Found\", http.StatusNotFound)")
-		fmt.Fprintln(out, "\t}")
-		fmt.Fprintln(out, "}") // end of ServeHTTP method
-		fmt.Fprintln(out)
 	}
+
+	*receiverList = append(
+		*receiverList,
+		ServeTmpl{
+			Receiver: nameReceiver,
+			Routes: []*Route{
+				{
+					Method: fn,
+					Meta:   resultJSON,
+				},
+			},
+		},
+	)
 }
 
-func generateWrapperDoMethod(out *os.File, receiverList *receiverCodoGen) {
-	for nameReceiver, elem := range receiverList.receivers {
-		for _, v := range elem {
-			fmt.Fprintln(out, "func (h *"+nameReceiver+") handler"+v.method.Name.Name+"(w http.ResponseWriter, r *http.Request) {")
-
-			// nameWrapperoSomeJob := fmt.Sprint(v.method.Type.Params.List[1].Type)
-			fmt.Fprintln(out, "\tres, err := h."+v.method.Name.Name+"(ctx, params)")
-			fmt.Fprintln(out, "}") // wrapperDoSomeJob end of  method
-			fmt.Fprintln(out)
+func createdStructList(sct *ast.GenDecl, structList *[]ValidTmpl) {
+	for _, spec := range sct.Specs {
+		currType, ok := spec.(*ast.TypeSpec)
+		if !ok {
+			fmt.Printf("SKIP %#T is not ast.TypeSpec\n", spec)
+			continue
 		}
+
+		currStruct, ok := currType.Type.(*ast.StructType)
+		if !ok {
+			fmt.Printf("SKIP %#T is not ast.StructType\n", currStruct)
+			continue
+		}
+		*structList = append(*structList, ValidTmpl{Struct: currType})
 	}
 }
 
@@ -155,29 +209,27 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Fprintln(out, `package `+node.Name.Name)
-	fmt.Fprintln(out) // empty line
-	fmt.Fprintln(out, `import "net/http"`)
-	fmt.Fprintln(out) // empty line
-
-	receiverList := &receiverCodoGen{
-		receivers: make(map[string][]*apiMethod),
-	}
+	receiverList := &[]ServeTmpl{}
+	structList := &[]ValidTmpl{}
 
 	for _, f := range node.Decls {
 		switch decl := f.(type) {
 		case *ast.FuncDecl:
-			if isMethod(decl) {
-				createdMethodList(decl, receiverList)
-			}
+			createdMethodList(decl, receiverList)
 		case *ast.GenDecl:
-			isStructParams(decl)
+			createdStructList(decl, structList)
 		default:
 			fmt.Printf("SKIP %#T is not *ast.FuncDecl or *ast.GenDecl\n", f)
 			continue
 		}
 	}
 
-	generateServeHTTP(out, receiverList)
-	generateWrapperDoMethod(out, receiverList)
+	receivers := &struct {
+		Receivers *[]ServeTmpl
+	}{Receivers: receiverList}
+
+	packageTpl.Execute(out, PackageTmpl{node.Name.Name})
+	serveTpl.Execute(out, receivers)
+	handlerTpl.Execute(out, receivers)
+
 }

@@ -20,6 +20,7 @@ var (
 		`package {{.NamePackage}}
 	
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -29,19 +30,50 @@ import (
 `))
 	serveTpl = template.Must(template.New("serveTpl").Parse(
 		`{{range .Receivers}}func (h *{{.Receiver}}) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch r.URL.Path { {{range .Routes}}
+	switch r.URL.Path { 
+	{{range $rts := .Routes}}
 	case "{{.Meta.URL}}":
-		h.handler{{.Method.Name.Name}}(w, r){{end}}
+		switch r.Method{
+			{{if eq $rts.Meta.Method "POST"}}
+			case "POST":
+				h.handler{{.Method.Name.Name}}(w, r)
+			default:
+				w.WriteHeader(http.StatusNotAcceptable)
+				resp := Response{
+					Error: "bad method",
+				}
+				json.NewEncoder(w).Encode(resp)
+				return
+			{{else}}
+			case "GET":
+				h.handler{{.Method.Name.Name}}(w, r)
+			case "POST":
+				h.handler{{.Method.Name.Name}}(w, r)
+			default:
+				w.WriteHeader(http.StatusNotAcceptable)
+				resp := Response{
+					Error: "bad method",
+				}
+				json.NewEncoder(w).Encode(resp)
+				return
+			{{end}}
+		}
+	{{end}}
 	default:
-		http.Error(w, "unknown method", http.StatusNotFound)
+		w.WriteHeader(http.StatusNotFound)
+		resp := Response{
+			Error: "unknown method",
+		}
+		json.NewEncoder(w).Encode(resp)
+		return
 	}
 }
 
 {{end}}`))
 	respTpl = template.Must(template.New("packageTpl").Parse(
-		`type resp struct {
+		`type Response struct {
 	Error    string      ` + "`" + `json:"error"` + "`" + `
-	Response interface{} ` + "`" + `json:"response,omitempty"` + "`" + `
+	Body     any ` + "`" + `json:"response,omitempty"` + "`" + `
 }
 	`))
 	requiredTpl = `if params.{{.Param}} == "" {
@@ -50,16 +82,28 @@ import (
 	}`
 	authTpl = `if r.Header.Get("X-Auth") != "100500" {
 		w.Header().Set("WWW-Authenticate", "Basic realm='api'")
-		http.Error(w, "unauthorized", http.StatusForbidden)
+		w.WriteHeader(http.StatusForbidden)
+		resp := Response{
+			Error: "unauthorized",
+		}
+		json.NewEncoder(w).Encode(resp)
 		return
 	}`
 	apiErrorCheckTpl = `if err != nil {
-		var ae *ApiError
-		if errors.As(err, ae) {
-			http.Error(w, err.Error(), ae.HTTPStatus)
+		var ae ApiError
+		if errors.As(err, &ae) {
+			w.WriteHeader(ae.HTTPStatus)
+			resp := Response{
+				Error: err.Error(),
+			}
+			json.NewEncoder(w).Encode(resp)
 			return
 		}
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
+		resp := Response{
+			Error: err.Error(),
+		}
+		json.NewEncoder(w).Encode(resp)
 		return
 	}`
 	handlerTpl = template.Must(template.New("handlerTpl").
@@ -73,6 +117,7 @@ import (
 			"getTypeField":        getTypeField,
 			"paramKey":            paramKey,
 			"split":               func(s, sep string) []string { return strings.Split(s, sep) },
+			"replace":             strings.ReplaceAll,
 		}).
 		Parse(
 			`{{$root := .}}
@@ -82,14 +127,10 @@ import (
 			{{if $rts.Meta.Auth}}
 				{{authTpl}}
 			{{end}}
-			{{if eq $rts.Meta.Method "POST"}}
 			if err := r.ParseForm(); err != nil {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			{{else}}
-			values := r.URL.Query()
-			{{end}}
 			var params {{(index $rts.Method.Type.Params.List 1).Type}}
 			// валидирование параметров и заполнение структуры params
 			{{range $st := $root.Structs}}
@@ -99,61 +140,73 @@ import (
 						{{if $field.Tag}}
 							{{$tagMap := $field.Tag.Value | parseTag}}
 							{{$paramname := paramKey $tagMap (index $field.Names 0).Name}}
-							{{if eq $rts.Meta.Method "POST"}}
-								{{if eq "int" ($field | getTypeField)}}
-									{{(index $field.Names 0).Name | toLowercase}}, err := strconv.Atoi(r.FormValue("{{(index $field.Names 0).Name | toLowercase}}")) 
-									if err != nil {
-										http.Error(w, err.Error(), http.StatusInternalServerError)
-										return
+							{{if eq "int" ($field | getTypeField)}}
+								{{(index $field.Names 0).Name | toLowercase}}, err := strconv.Atoi(r.FormValue("{{(index $field.Names 0).Name | toLowercase}}")) 
+								if err != nil {
+									w.WriteHeader(http.StatusBadRequest)
+									resp := Response{
+										Error: "{{$paramname}} must be int",
 									}
-								{{else}}
-									{{(index $field.Names 0).Name | toLowercase}} := r.FormValue("{{$paramname}}")
-								{{end}}
+									json.NewEncoder(w).Encode(resp)
+									return
+								}
 							{{else}}
-								{{if eq "int" ($field | getTypeField)}}
-									{{(index $field.Names 0).Name | toLowercase}}, err := strconv.Atoi(values.Get("{{(index $field.Names 0).Name | toLowercase}}")) 
-									if err != nil {
-										http.Error(w, err.Error(), http.StatusInternalServerError)
-										return
+								{{(index $field.Names 0).Name | toLowercase}} := r.FormValue("{{$paramname}}")
+							{{end}}
+							{{if hasKey $tagMap "required"}}
+								if {{(index $field.Names 0).Name | toLowercase}} == "" {
+									w.WriteHeader(http.StatusBadRequest)
+									resp := Response{
+										Error: "{{$paramname}} must me not empty",
 									}
-								{{else}}
-									{{(index $field.Names 0).Name | toLowercase}} :=  values.Get("{{$paramname}}")
-								{{end}}
+									json.NewEncoder(w).Encode(resp)
+									return
+								}
 							{{end}}
 							{{range $key, $val := $tagMap}}
 								{{if eq $key "default"}}
 									if {{(index $field.Names 0).Name | toLowercase}} == "" {
 										{{(index $field.Names 0).Name | toLowercase}} = "{{$tagMap.default}}"
 									}
-								{{else if eq $key "required"}}
-									if {{(index $field.Names 0).Name | toLowercase}} == "" {
-										http.Error(w, "{{$paramname}} must me not empty", http.StatusBadRequest)
-										return
-									}
 								{{else if eq $key "min"}}
 									{{if eq "string" ($field | getTypeField)}}
 										if len({{(index $field.Names 0).Name | toLowercase}}) < {{$tagMap.min}} {
-											http.Error(w, "{{$paramname}} len must be >= {{$tagMap.min}}", http.StatusBadRequest)
+											w.WriteHeader(http.StatusBadRequest)
+											resp := Response{
+												Error: "{{$paramname}} len must be >= {{$tagMap.min}}",
+											}
+											json.NewEncoder(w).Encode(resp)
 											return
 										}
 									{{else if eq "int" ($field | getTypeField)}}
 										if {{(index $field.Names 0).Name | toLowercase}} < {{$tagMap.min}} {
-											http.Error(w, "{{$paramname}} must be >= {{$tagMap.min}}", http.StatusBadRequest)
+											w.WriteHeader(http.StatusBadRequest)
+											resp := Response{
+												Error: "{{$paramname}} must be >= {{$tagMap.min}}",
+											}
+											json.NewEncoder(w).Encode(resp)
 											return
 										}
 									{{end}}
 								{{else if eq $key "max"}}
 									if {{(index $field.Names 0).Name | toLowercase}} > {{$tagMap.max}} {
-										http.Error(w, "{{$paramname}} must be <= {{$tagMap.max}}", http.StatusBadRequest)
+										w.WriteHeader(http.StatusBadRequest)
+										resp := Response{
+											Error: "{{$paramname}} must be <= {{$tagMap.max}}",
+										}
+										json.NewEncoder(w).Encode(resp)
 										return
 									}
 								{{else if eq $key "enum"}}
 									{{$allowed := split $tagMap.enum "|"}}
 									if !slices.Contains([]string{ {{range $allowed}}"{{.}}",{{end}} }, {{$paramname}}) {
-										http.Error(w, "{{$paramname}} must be one of {{$tagMap.enum}}", http.StatusBadRequest)
+										w.WriteHeader(http.StatusBadRequest)
+										resp := Response{
+											Error: "{{$paramname}} must be one of [{{replace $tagMap.enum "|" ", "}}]",
+										}
+										json.NewEncoder(w).Encode(resp)
 										return
 									}
-										
 								{{end}}	
 							{{end}}
 							params.{{(index $field.Names 0).Name}} = {{(index $field.Names 0).Name | toLowercase}}
@@ -169,11 +222,15 @@ import (
 			// прочие обработки
 			w.WriteHeader(http.StatusOK)
 			w.Header().Set("Content-Type", "application/json")
-			answer := resp{Error: "", Response: res}
+			answer := Response{Error: "", Body: res}
 			if err := json.NewEncoder(w).Encode(answer); err != nil {
 				var ae *ApiError
 				if errors.As(err, ae) {
-					http.Error(w, err.Error(), ae.HTTPStatus)
+					w.WriteHeader(ae.HTTPStatus)
+					resp := Response{
+						Error: err.Error(),
+					}
+					json.NewEncoder(w).Encode(resp)
 					return
 				}
 				http.Error(w, err.Error(), http.StatusInternalServerError)

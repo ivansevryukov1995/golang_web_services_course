@@ -355,6 +355,12 @@ ok      hw4     2.864s
 <details><summary>Result:</summary>
 
 ```bash
+=== RUN   TestMyApi
+--- PASS: TestMyApi (0.01s)
+=== RUN   TestOtherApi
+--- PASS: TestOtherApi (0.00s)
+PASS
+ok      codegenhw       0.401s
 ```
 </details>
 

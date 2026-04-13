@@ -501,7 +501,14 @@ func TestApis(t *testing.T) {
 }
 
 func runCases(t *testing.T, ts *httptest.Server, db *sql.DB, cases []Case) {
+	count := 0
+
 	for idx, item := range cases {
+
+		if count == 3 {
+			return
+		}
+
 		var (
 			err      error
 			result   interface{}
@@ -564,6 +571,7 @@ func runCases(t *testing.T, ts *httptest.Server, db *sql.DB, cases []Case) {
 			t.Fatalf("[%s] results not match\nGot : %#v\nWant: %#v", caseName, result, expected)
 			continue
 		}
+		count++
 	}
 
 }

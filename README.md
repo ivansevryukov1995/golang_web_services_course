@@ -366,12 +366,30 @@ ok      codegenhw       0.401s
 
 6. [Универсальный сервис просмотра содержимого БД](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/6)
 <details><summary>Result:</summary>
-```
+
+```bash
+=== RUN   TestServerStartStop
+--- PASS: TestServerStartStop (0.04s)
+=== RUN   TestServerLeak
+--- PASS: TestServerLeak (1.13s)
+=== RUN   TestACLParseError
+--- PASS: TestACLParseError (0.00s)
+=== RUN   TestACL
+--- PASS: TestACL (0.04s)
+=== RUN   TestLogging
+--- PASS: TestLogging (0.04s)
+=== RUN   TestStat
+--- PASS: TestStat (4.26s)
+=== RUN   TestWorkAfterDisconnect
+--- PASS: TestWorkAfterDisconnect (0.29s)
+PASS
+ok      coursera/hw7_microservice       6.833s
 ```
 </details>
 
 7. [Асинхронная система логирования](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/7)
 <details><summary>Result:</summary>
+
 ```
 ```
 </details>

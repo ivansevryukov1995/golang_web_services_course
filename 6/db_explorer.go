@@ -26,27 +26,19 @@ type Column struct {
 	Comment    string
 }
 
-type ctxKey string
+type ctxTable struct{}
 
-type ctxKeys struct {
-	table ctxKey
-	id    ctxKey
-}
+type ctxId struct{}
 
 type Handler struct {
 	DB           *sql.DB
-	Keys         *ctxKeys
 	tableColumns map[string][]string
 }
 
 func NewDbExplorer(db *sql.DB) (http.Handler, error) {
-
 	return &Handler{
 		DB: db,
-		Keys: &ctxKeys{
-			table: "table",
-			id:    "id",
-		}}, nil
+	}, nil
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +55,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch len(parts) {
 	case 1:
-		ctx := context.WithValue(r.Context(), h.Keys.table, parts[0])
+		ctx := context.WithValue(r.Context(), ctxTable{}, parts[0])
 		r = r.WithContext(ctx)
 
 		switch r.Method {
@@ -73,8 +65,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.ValidateTableMiddleware(h.ListRecords)(w, r)
 		}
 	case 2:
-		ctx := context.WithValue(r.Context(), h.Keys.table, parts[0])
-		ctx = context.WithValue(ctx, h.Keys.id, parts[1])
+		ctx := context.WithValue(r.Context(), ctxTable{}, parts[0])
+		ctx = context.WithValue(ctx, ctxId{}, parts[1])
 		r = r.WithContext(ctx)
 
 		switch r.Method {
@@ -186,7 +178,7 @@ func (h *Handler) ValidateTableMiddleware(next http.HandlerFunc) http.HandlerFun
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var err error
 
-		nameTable, ok := r.Context().Value(h.Keys.table).(string)
+		nameTable, ok := r.Context().Value(ctxTable{}).(string)
 		if !ok || nameTable == "" {
 			http.Error(w, "table not specified", http.StatusBadRequest)
 			return
@@ -243,7 +235,7 @@ func (h *Handler) ListRecords(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	nameTable := r.Context().Value(h.Keys.table).(string)
+	nameTable := r.Context().Value(ctxTable{}).(string)
 	query := fmt.Sprintf("SELECT * FROM `%s` LIMIT ? OFFSET ?", nameTable)
 
 	rows, err := h.DB.Query(
@@ -309,13 +301,13 @@ func (h *Handler) ListRecords(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) OneRecord(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	id, ok := r.Context().Value(h.Keys.id).(string)
+	id, ok := r.Context().Value(ctxId{}).(string)
 	if !ok || id == "" {
 		http.Error(w, "id not specified", http.StatusBadRequest)
 		return
 	}
 
-	nameTable := r.Context().Value(h.Keys.table).(string)
+	nameTable := r.Context().Value(ctxTable{}).(string)
 
 	columnsType, err := h.getListColumns(nameTable)
 	if err != nil {
@@ -398,7 +390,7 @@ func (h *Handler) OneRecord(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Add(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	nameTable := r.Context().Value(h.Keys.table).(string)
+	nameTable := r.Context().Value(ctxTable{}).(string)
 
 	var body map[string]any
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -481,9 +473,9 @@ func (h *Handler) Add(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	var err error
 
-	nameTable := r.Context().Value(h.Keys.table).(string)
+	nameTable := r.Context().Value(ctxTable{}).(string)
 
-	id, ok := r.Context().Value(h.Keys.id).(string)
+	id, ok := r.Context().Value(ctxId{}).(string)
 	if !ok || id == "" {
 		http.Error(w, "id not specified", http.StatusBadRequest)
 		return
@@ -588,9 +580,9 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
-	nameTable := r.Context().Value(h.Keys.table).(string)
+	nameTable := r.Context().Value(ctxTable{}).(string)
 
-	id, ok := r.Context().Value(h.Keys.id).(string)
+	id, ok := r.Context().Value(ctxId{}).(string)
 	if !ok || id == "" {
 		http.Error(w, "id not specified", http.StatusBadRequest)
 		return

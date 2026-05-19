@@ -28,6 +28,7 @@ func TestSimple(t *testing.T) {
 
 	var tmpData interface{}
 	json.Unmarshal(jsonRaw, &tmpData)
+	// fmt.Println(tmpData)
 
 	result := new(Simple)
 	err := i2s(tmpData, result)
@@ -63,6 +64,7 @@ func TestComplex(t *testing.T) {
 
 	var tmpData interface{}
 	json.Unmarshal(jsonRaw, &tmpData)
+	// fmt.Println(tmpData)
 
 	result := new(Complex)
 	err := i2s(tmpData, result)

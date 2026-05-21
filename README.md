@@ -1,7 +1,6 @@
 <a id='anchor'></a>
 # Golang web services course
-Этот репозиторий является списком выполненных заданий [курса](https://stepik.org/course/187490/syllabus) с сайта Stepik
-за авторством [Василия Романова](https://github.com/rvasily).
+Этот репозиторий является списком выполненных заданий [курса](https://stepik.org/course/187490/syllabus) с сайта Stepik.
 
 <img src=1\testdata\project\gopher.png height="200" width="200">
 
@@ -22,6 +21,7 @@ ok      hw      0.157s
 <details><summary>Result:</summary>
 
 ```bash
+go test -v -race
 === RUN   TestByIlia
 collected 3
 collected 9
@@ -32,7 +32,7 @@ collected 12
 === RUN   TestSigner
 --- PASS: TestSigner (2.07s)
 PASS
-ok      2       2.565s
+ok      2       3.931s
 ```
 </details>
 
@@ -368,6 +368,18 @@ ok      codegenhw       0.401s
 <details><summary>Result:</summary>
 
 ```bash
+go test -v -race
+=== RUN   TestApis
+--- PASS: TestApis (0.15s)
+PASS
+ok      db_explorer     2.242s
+```
+</details>
+
+7. [Асинхронная система логирования](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/7)
+<details><summary>Result:</summary>
+
+```bash
 === RUN   TestServerStartStop
 --- PASS: TestServerStartStop (0.04s)
 === RUN   TestServerLeak
@@ -387,40 +399,49 @@ ok      coursera/hw7_microservice       6.833s
 ```
 </details>
 
-7. [Асинхронная система логирования](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/7)
-<details><summary>Result:</summary>
-
-```
-```
-</details>
-
 8. [Заполнение полей структуры через рефлексию](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/8)
 <details><summary>Result:</summary>
-```
+
+```bash
+go test -v
+=== RUN   TestSimple
+--- PASS: TestSimple (0.00s)
+=== RUN   TestComplex
+--- PASS: TestComplex (0.00s)
+=== RUN   TestSlice
+--- PASS: TestSlice (0.00s)
+=== RUN   TestErrors
+--- PASS: TestErrors (0.00s)
+PASS
+ok      github.com/ivansevryukov1995/golang_web_services_course/8/i2s   0.408s
 ```
 </details>
 
 9. [Архитектура типового приложения](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/9)
 <details><summary>Result:</summary>
-```
+
+```bash
 ```
 </details>
 
 10. [Телеграм бот](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/10)
 <details><summary>Result:</summary>
-```
+
+```bash
 ```
 </details>
 
 11. [Маркетплейс на основе GraphQL](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/11)
 <details><summary>Result:</summary>
-```
+
+```bash
 ```
 </details>
 
 12. [Многопользовательская MUD на основе асинхрона](https://github.com/ivansevryukov1995/golang_web_services_course/tree/main/12)
 <details><summary>Result:</summary>
-```
+
+```bash
 ```
 </details>
 

@@ -491,9 +491,12 @@ func TestApp(t *testing.T) {
 				body []byte
 				url  = replaceRe.ReplaceAllFunc([]byte(item.URL), replacer)
 			)
+
 			if item.Body != "" {
 				body = replaceRe.ReplaceAllFunc([]byte(item.Body), replacer)
 			}
+
+			// log.Printf("Final body: %s\n", string(body))
 
 			req, _ := http.NewRequest(item.Method, string(url), bytes.NewReader(body))
 			req.Header.Add("X-Requested-With", "XMLHttpRequest")
@@ -502,6 +505,8 @@ func TestApp(t *testing.T) {
 			if item.TokenName != "" {
 				req.Header.Add("Authorization", "Token "+tplParams[item.TokenName])
 			}
+
+			// t.Logf("\nTokenName: %s\n", tplParams[item.TokenName])
 
 			resp, err := client.Do(req)
 			if err != nil {
@@ -522,6 +527,8 @@ func TestApp(t *testing.T) {
 			}
 
 			got := WeirdMagicClone(item.Expected)
+			// t.Logf("\ngot: %s", got)
+
 			err = json.Unmarshal(respBody, got)
 			if err != nil {
 				t.Fatalf("cant unmarshal resp: %s, body: %s", err, respBody)

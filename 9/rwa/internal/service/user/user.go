@@ -2,6 +2,7 @@ package user
 
 import (
 	"context"
+	"errors"
 	"rwa/internal/model"
 	"time"
 )
@@ -9,7 +10,12 @@ import (
 type Repository interface {
 	GetByEmail(ctx context.Context, email string) (model.User, error)
 	InsertUser(ctx context.Context, user model.User) (model.User, error)
-	UpdateUser(ctx context.Context, email string, user model.User) (model.User, error)
+	UpdateUser(ctx context.Context, id string, user model.User) (model.User, error)
+}
+
+type ServiceSession interface {
+	Check(ctx context.Context, token string) (model.Session, error)
+	Create(ctx context.Context, userID string, email string) (string, error)
 }
 
 type UserInput struct {
@@ -20,52 +26,53 @@ type UserInput struct {
 }
 
 type service struct {
-	repo Repository
+	repo    Repository
+	session ServiceSession
 }
 
-func NewService(repo Repository) *service {
-	return &service{repo: repo}
+func NewService(repo Repository, session ServiceSession) *service {
+	return &service{repo: repo,
+		session: session,
+	}
 }
 
-func (s *service) RegisterUser(ctx context.Context, in UserInput) (model.User, error) {
-
-	now := time.Now().UTC().Format(time.RFC3339Nano)
+func (s *service) RegisterUser(ctx context.Context, in UserInput) (model.User, string, error) {
 	user := model.User{
-		Email:     in.Email,
-		Password:  in.Password,
-		Username:  in.Username,
-		CreatedAt: now,
-		UpdatedAt: now,
+		Email:    in.Email,
+		Password: in.Password,
+		Username: in.Username,
 	}
 
-	u, err := s.repo.InsertUser(ctx, user)
-	if err != nil && err.Error() == "looks like user exists" {
-		return model.User{}, err
+	newUser, err := s.repo.InsertUser(ctx, user)
+	if err != nil && errors.Is(err, errors.New("looks like user exists")) {
+		return model.User{}, "", err
 	}
-	return u, nil
 
+	token, _ := s.session.Create(ctx, newUser.ID, newUser.Email)
+
+	return newUser, token, nil
 }
 
-func (s *service) LoginUser(ctx context.Context, in UserInput) (model.User, error) {
+func (s *service) LoginUser(ctx context.Context, in UserInput) (model.User, string, error) {
 
-	u, err := s.repo.GetByEmail(ctx, in.Email)
-	if err != nil && err.Error() == "user not found" {
-		return model.User{}, err
+	user, err := s.repo.GetByEmail(ctx, in.Email)
+	if err != nil && errors.Is(err, errors.New("user not found")) {
+		return model.User{}, "", err
 	}
 
-	if in.Password != u.Password {
-		return model.User{}, nil
+	if in.Password != user.Password {
+		return model.User{}, "", nil
 	}
 
-	u.UpdatedAt = time.Now().UTC().Format(time.RFC3339Nano)
+	token, _ := s.session.Create(ctx, user.ID, user.Email)
 
-	return u, nil
+	return user, token, nil
 }
 
 func (s *service) CurrentUser(ctx context.Context, email string) (model.User, error) {
 
 	u, err := s.repo.GetByEmail(ctx, email)
-	if err != nil && err.Error() == "user not found" {
+	if err != nil && errors.Is(err, errors.New("user not found")) {
 		return model.User{}, err
 	}
 
@@ -74,20 +81,18 @@ func (s *service) CurrentUser(ctx context.Context, email string) (model.User, er
 	return u, nil
 }
 
-func (s *service) UpdateUser(ctx context.Context, email string, in UserInput) (model.User, error) {
-
-	now := time.Now().UTC().Format(time.RFC3339Nano)
-	user := model.User{
-		Email:     in.Email,
-		Username:  in.Username,
-		Bio:       in.Bio,
-		UpdatedAt: now,
+func (s *service) UpdateUser(ctx context.Context, id string, in UserInput) (model.User, string, error) {
+	u := model.User{
+		Email: in.Email,
+		Bio:   in.Bio,
 	}
 
-	u, err := s.repo.UpdateUser(ctx, email, user)
-	if err != nil && err.Error() == "user not found" {
-		return model.User{}, err
+	user, err := s.repo.UpdateUser(ctx, id, u)
+	if err != nil && errors.Is(err, errors.New("user not found")) {
+		return model.User{}, "", err
 	}
 
-	return u, nil
+	token, _ := s.session.Create(ctx, id, user.Email)
+
+	return user, token, nil
 }

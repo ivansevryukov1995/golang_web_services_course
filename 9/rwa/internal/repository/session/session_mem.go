@@ -8,13 +8,13 @@ import (
 )
 
 type memRepo struct {
-	mu   sync.RWMutex
-	data map[string]model.Session
+	mu sync.RWMutex
+	db map[string]model.Session
 }
 
 func NewMemRepo() *memRepo {
 	return &memRepo{
-		data: make(map[string]model.Session),
+		db: make(map[string]model.Session),
 	}
 }
 
@@ -22,7 +22,7 @@ func (sm *memRepo) Get(ctx context.Context, token string) (model.Session, error)
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
 
-	sess, exist := sm.data[token]
+	sess, exist := sm.db[token]
 	if !exist {
 		return model.Session{}, errors.New("no session found")
 	}
@@ -35,7 +35,7 @@ func (sm *memRepo) Create(ctx context.Context, userID string, email string) (str
 
 	token := userID
 
-	sm.data[token] = model.Session{
+	sm.db[token] = model.Session{
 		UserID: userID,
 		Email:  email,
 		Token:  token,

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"rwa/internal/handler"
 	articleHandler "rwa/internal/handler/article"
-	sessionHandler "rwa/internal/handler/session"
 	userHandler "rwa/internal/handler/user"
+	auth "rwa/internal/middleware"
 	articleRepository "rwa/internal/repository/article"
 	sessionRepository "rwa/internal/repository/session"
 	userRepository "rwa/internal/repository/user"
@@ -28,11 +28,11 @@ func GetApp() http.Handler {
 	articleMemRepo := articleRepository.NewMemRepo()
 
 	// Service
-	userService := userService.NewService(userMemRepo)
+	userService := userService.NewService(userMemRepo, sessionService)
 	articleService := articleService.NewService(articleMemRepo)
 
 	// Delivery
-	userHandler := userHandler.NewHandler(userService, sessionService)
+	userHandler := userHandler.NewHandler(userService)
 	articleHandler := articleHandler.NewHandler(articleService)
 
 	// Router
@@ -42,7 +42,7 @@ func GetApp() http.Handler {
 
 	handler.RegisterRoutes(api, userHandler, articleHandler)
 
-	api.Use(sessionHandler.AuthMiddleware(sessionService))
+	api.Use(auth.AuthMiddleware(sessionService))
 
 	return mux
 }

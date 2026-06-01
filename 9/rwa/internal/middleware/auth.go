@@ -1,4 +1,4 @@
-package session
+package auth
 
 import (
 	"context"
@@ -30,11 +30,20 @@ var (
 )
 
 func SessionFromContext(ctx context.Context) (model.Session, error) {
-	sess, ok := ctx.Value(sessionKey).(model.Session) // ← *model.Session
+	sess, ok := ctx.Value(sessionKey).(model.Session)
 	if !ok {
 		return model.Session{}, ErrNoAuth
 	}
 	return sess, nil
+}
+
+func getTokenFromHeader(r *http.Request) string {
+	auth := r.Header.Get("Authorization")
+	if auth == "" {
+		return ""
+	}
+
+	return strings.TrimPrefix(auth, "Token ")
 }
 
 func AuthMiddleware(s Service) func(http.Handler) http.Handler {
@@ -48,21 +57,17 @@ func AuthMiddleware(s Service) func(http.Handler) http.Handler {
 				return
 			}
 
-			auth := r.Header.Get("Authorization")
-			if auth == "" {
+			token := getTokenFromHeader(r)
+			if token == "" {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-
-			token := strings.TrimPrefix(auth, "Token ")
-			// log.Printf("token:%s", token)
 
 			sess, err := s.Check(r.Context(), token)
 			if err != nil {
 				w.WriteHeader(http.StatusUnauthorized)
 				return
 			}
-			// log.Printf("sess:%s", sess)
 
 			ctx := context.WithValue(r.Context(), sessionKey, sess)
 			next.ServeHTTP(w, r.WithContext(ctx))

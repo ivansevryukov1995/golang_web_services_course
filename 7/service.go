@@ -50,7 +50,7 @@ func (s *server) Logging(_ *Nothing, stream Admin_LoggingServer) error {
 }
 
 func (s *server) Statistics(req *StatInterval, stream Admin_StatisticsServer) error {
-	prevByMethod, prevByConsumer := s.snapshotStat()
+	prevByMethod, prevByConsumer := s.createStatMemento()
 
 	ticker := time.NewTicker(time.Duration(req.IntervalSeconds) * time.Second)
 	defer ticker.Stop()
@@ -61,11 +61,14 @@ func (s *server) Statistics(req *StatInterval, stream Admin_StatisticsServer) er
 			return nil
 		case <-ticker.C:
 			diff := s.diffStat(prevByMethod, prevByConsumer)
+
 			if err := stream.Send(diff); err != nil {
 				return err
 			}
+
 			// Обновляем базу для следующего интервала
-			prevByMethod, prevByConsumer = s.snapshotStat()
+			prevByMethod, prevByConsumer = s.createStatMemento()
+
 		}
 	}
 }
@@ -224,7 +227,7 @@ func (s *server) incStat(method, consumer string) {
 	s.byConsumer[consumer]++
 }
 
-func (s *server) snapshotStat() (map[string]uint64, map[string]uint64) {
+func (s *server) createStatMemento() (map[string]uint64, map[string]uint64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -238,7 +241,7 @@ func (s *server) snapshotStat() (map[string]uint64, map[string]uint64) {
 }
 
 func (s *server) diffStat(prevByMethod, prevByConsumer map[string]uint64) *Stat {
-	curByMethod, curByConsumer := s.snapshotStat()
+	curByMethod, curByConsumer := s.createStatMemento()
 
 	res := &Stat{
 		ByMethod:   make(map[string]uint64),

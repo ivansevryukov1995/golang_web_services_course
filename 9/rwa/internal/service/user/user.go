@@ -16,6 +16,7 @@ type Repository interface {
 type ServiceSession interface {
 	Check(ctx context.Context, token string) (model.Session, error)
 	Create(ctx context.Context, userID string, email string) (string, error)
+	DestroyCurrent(ctx context.Context, token string)
 }
 
 type UserInput struct {
@@ -95,4 +96,7 @@ func (s *service) UpdateUser(ctx context.Context, id string, in UserInput) (mode
 	token, _ := s.session.Create(ctx, id, user.Email)
 
 	return user, token, nil
+}
+func (s *service) Logout(ctx context.Context, token string) {
+	s.session.DestroyCurrent(ctx, token)
 }

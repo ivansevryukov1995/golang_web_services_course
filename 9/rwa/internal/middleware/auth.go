@@ -3,7 +3,6 @@ package auth
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"rwa/internal/model"
 	"strings"
@@ -12,14 +11,6 @@ import (
 type Service interface {
 	Check(ctx context.Context, token string) (model.Session, error)
 }
-
-var (
-	noAuthUrls = map[string]struct{}{
-		"/api/users":       struct{}{},
-		"/api/users/login": struct{}{},
-		// "/api/articles":    struct{}{},
-	}
-)
 
 type ctxKey int
 
@@ -49,13 +40,6 @@ func getTokenFromHeader(r *http.Request) string {
 func AuthMiddleware(s Service) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-			if _, ok := noAuthUrls[r.URL.Path]; ok && r.URL.RawQuery == "" {
-
-				log.Printf("Url: %s, Values: %s no token\n", r.URL.Path, r.URL.RawQuery)
-				next.ServeHTTP(w, r)
-				return
-			}
 
 			token := getTokenFromHeader(r)
 			if token == "" {

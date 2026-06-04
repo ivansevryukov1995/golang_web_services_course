@@ -421,6 +421,41 @@ ok      github.com/ivansevryukov1995/golang_web_services_course/8/i2s   0.408s
 <details><summary>Result:</summary>
 
 ```bash
+go test -v
+=== RUN   TestApp
+=== RUN   TestApp/Auth_-_Register
+=== RUN   TestApp/Auth_-_Login
+=== RUN   TestApp/Auth_-_Current_User
+=== RUN   TestApp/Auth_-_Update_User
+=== RUN   TestApp/Auth_-_Current_User_after_Update
+=== RUN   TestApp/Auth_-_Register_second_user
+=== RUN   TestApp/Articles_-_Create_Article_-_First_user
+=== RUN   TestApp/Articles_-_Create_Article_-_Second_user
+=== RUN   TestApp/Articles_-_All_Articles
+=== RUN   TestApp/Articles_-_by_author
+=== RUN   TestApp/Articles_-_by_tag
+=== RUN   TestApp/No_Auth_-_Current_User_-_No_Auth
+=== RUN   TestApp/No_Auth_-_Current_User_Logout_-_Require_Auth
+=== RUN   TestApp/No_Auth_-_Current_User_Logout
+=== RUN   TestApp/No_Auth_-_Current_User_-_No_Auth_after_logout
+--- PASS: TestApp (0.01s)
+    --- PASS: TestApp/Auth_-_Register (0.00s)
+    --- PASS: TestApp/Auth_-_Login (0.00s)
+    --- PASS: TestApp/Auth_-_Current_User (0.00s)
+    --- PASS: TestApp/Auth_-_Update_User (0.00s)
+    --- PASS: TestApp/Auth_-_Current_User_after_Update (0.00s)
+    --- PASS: TestApp/Auth_-_Register_second_user (0.00s)
+    --- PASS: TestApp/Articles_-_Create_Article_-_First_user (0.00s)
+    --- PASS: TestApp/Articles_-_Create_Article_-_Second_user (0.00s)
+    --- PASS: TestApp/Articles_-_All_Articles (0.00s)
+    --- PASS: TestApp/Articles_-_by_author (0.00s)
+    --- PASS: TestApp/Articles_-_by_tag (0.00s)
+    --- PASS: TestApp/No_Auth_-_Current_User_-_No_Auth (0.00s)
+    --- PASS: TestApp/No_Auth_-_Current_User_Logout_-_Require_Auth (0.00s)
+    --- PASS: TestApp/No_Auth_-_Current_User_Logout (0.00s)
+    --- PASS: TestApp/No_Auth_-_Current_User_-_No_Auth_after_logout (0.00s)
+PASS
+ok      rwa     0.013s
 ```
 </details>
 

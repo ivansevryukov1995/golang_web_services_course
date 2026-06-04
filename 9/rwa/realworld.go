@@ -5,7 +5,6 @@ import (
 	"rwa/internal/handler"
 	articleHandler "rwa/internal/handler/article"
 	userHandler "rwa/internal/handler/user"
-	auth "rwa/internal/middleware"
 	articleRepository "rwa/internal/repository/article"
 	sessionRepository "rwa/internal/repository/session"
 	userRepository "rwa/internal/repository/user"
@@ -24,12 +23,12 @@ func GetApp() http.Handler {
 	// sessionHandler := sessionHandler.NewHandler(sessionService)
 
 	// Repository - слой db на слайсах
-	userMemRepo := userRepository.NewMemRepo()
-	articleMemRepo := articleRepository.NewMemRepo()
+	userRepo := userRepository.NewMemRepo()
+	articleRepo := articleRepository.NewMemRepo()
 
 	// Service
-	userService := userService.NewService(userMemRepo, sessionService)
-	articleService := articleService.NewService(articleMemRepo)
+	userService := userService.NewService(userRepo, sessionService)
+	articleService := articleService.NewService(articleRepo, userRepo)
 
 	// Delivery
 	userHandler := userHandler.NewHandler(userService)
@@ -38,11 +37,7 @@ func GetApp() http.Handler {
 	// Router
 	mux := mux.NewRouter()
 
-	api := mux.PathPrefix("/api").Subrouter()
-
-	handler.RegisterRoutes(api, userHandler, articleHandler)
-
-	api.Use(auth.AuthMiddleware(sessionService))
+	handler.RegisterRoutes(mux, userHandler, articleHandler, sessionService)
 
 	return mux
 }

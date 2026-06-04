@@ -15,15 +15,16 @@ type ServiceUser interface {
 	LoginUser(ctx context.Context, in userService.UserInput) (model.User, string, error)
 	CurrentUser(ctx context.Context, email string) (model.User, error)
 	UpdateUser(ctx context.Context, id string, in userService.UserInput) (model.User, string, error)
+	Logout(ctx context.Context, token string)
 }
 
 type handler struct {
-	user ServiceUser
+	service ServiceUser
 }
 
 func NewHandler(service ServiceUser) *handler {
 	return &handler{
-		user: service,
+		service: service,
 	}
 }
 
@@ -38,7 +39,7 @@ func (h *handler) Reg(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, token, err := h.user.RegisterUser(r.Context(), dto.ToUserInput(req))
+	user, token, err := h.service.RegisterUser(r.Context(), dto.ToUserInput(req))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -61,7 +62,7 @@ func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, token, err := h.user.LoginUser(r.Context(), dto.ToUserInput(req))
+	user, token, err := h.service.LoginUser(r.Context(), dto.ToUserInput(req))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -74,19 +75,23 @@ func (h *handler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) Logout(w http.ResponseWriter, r *http.Request) {
-
+	sess, err := auth.SessionFromContext(r.Context())
+	if err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	h.service.Logout(r.Context(), sess.Token)
 }
 
 func (h *handler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
 
 	sess, err := auth.SessionFromContext(r.Context())
-
 	if err != nil {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	user, err := h.user.CurrentUser(r.Context(), sess.Email)
+	user, err := h.service.CurrentUser(r.Context(), sess.Email)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -115,7 +120,7 @@ func (h *handler) UpdateCurrentUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, token, err := h.user.UpdateUser(r.Context(), sess.UserID, dto.ToUserInput(req))
+	user, token, err := h.service.UpdateUser(r.Context(), sess.UserID, dto.ToUserInput(req))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -5,9 +5,8 @@ type User struct {
 	CreatedAt string `json:"createdAt"`
 	UpdatedAt string `json:"updatedAt"`
 	Username  string `json:"username"`
-	Bio       string `json:"bio"
-	`
-	Token string `json:"token,omitempty"`
+	Bio       string `json:"bio"`
+	Token     string `json:"token,omitempty"`
 }
 
 type UserResponse struct {

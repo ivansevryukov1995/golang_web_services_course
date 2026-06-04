@@ -8,7 +8,7 @@ import (
 type Repository interface {
 	Get(ctx context.Context, token string) (model.Session, error)
 	Create(ctx context.Context, userID string, email string) (string, error)
-	// DestroyCurrent(http.ResponseWriter, *http.Request) error
+	DestroyCurrent(ctx context.Context, token string)
 	// DestroyAll(http.ResponseWriter, *User) error
 }
 
@@ -38,4 +38,10 @@ func (s *service) Create(ctx context.Context, userID string, email string) (stri
 	token, _ := s.repo.Create(ctx, userID, email)
 
 	return token, nil
+}
+
+func (s *service) DestroyCurrent(ctx context.Context, token string) {
+
+	s.repo.DestroyCurrent(ctx, token)
+
 }

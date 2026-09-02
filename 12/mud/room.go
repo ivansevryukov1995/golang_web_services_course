@@ -1,26 +1,26 @@
 package main
 
 type Room struct {
-	Name               string
-	Desc               string
-	isKitchen          bool
-	TargetsInteraction []*Target
-	Envir              []*Envir
-	NextRooms          []*Room
+	Name      string
+	Desc      string
+	isKitchen bool
+	Doors     []*Door
+	Furniture []*Furniture
+	NextRooms []*Room
 }
 
 func NewRoom(name, desc string) *Room {
 	return &Room{
-		Name:               name,
-		Desc:               desc,
-		isKitchen:          false,
-		TargetsInteraction: []*Target{},
-		NextRooms:          []*Room{},
+		Name:      name,
+		Desc:      desc,
+		isKitchen: false,
+		Doors:     []*Door{},
+		NextRooms: []*Room{},
 	}
 }
 
-func (r Room) GetEnvir() []*Envir {
-	return r.Envir
+func (r Room) GetFurniture() []*Furniture {
+	return r.Furniture
 }
 
 func (r Room) GetName() string {
@@ -35,8 +35,8 @@ func (r Room) GetDesc() string {
 	return r.Desc
 }
 
-func (r Room) GetTargets() []*Target {
-	return r.TargetsInteraction
+func (r Room) GetTargets() []*Door {
+	return r.Doors
 }
 
 func (r *Room) SetKitchen() {
@@ -47,32 +47,30 @@ func (r Room) IsKitchen() bool {
 }
 
 func (r Room) IsEmptyRoom() bool {
-	envirs := r.GetEnvir()
-	items := []*Item{}
+	envirs := r.GetFurniture()
 
 	for idx := range envirs {
-		items = append(items, envirs[idx].GetItems()...)
+		if len(envirs[idx].GetItems()) > 0 {
+			return false
+		}
 	}
 
-	if len(items) != 0 {
-		return true
-	}
-	return false
+	return true
 }
 
-func (r *Room) AddEnvir(envirs ...*Envir) {
-	r.Envir = append(r.Envir, envirs...)
+func (r *Room) AddFurniture(envirs ...*Furniture) {
+	r.Furniture = append(r.Furniture, envirs...)
 }
 
-func (r *Room) AddTarget(target *Target) {
-	r.TargetsInteraction = append(r.TargetsInteraction, target)
+func (r *Room) AddTarget(target *Door) {
+	r.Doors = append(r.Doors, target)
 }
 
 func (r *Room) AddNextRooms(rooms ...*Room) {
 	r.NextRooms = append(r.NextRooms, rooms...)
 }
 
-func (r *Room) CheckTarget(target string) (*Target, bool) {
+func (r *Room) CheckTarget(target string) (*Door, bool) {
 	targets := r.GetTargets()
 	for idx := range targets {
 		if targets[idx].GetName() == target {
@@ -83,9 +81,9 @@ func (r *Room) CheckTarget(target string) (*Target, bool) {
 }
 
 func (r Room) CheckItemInRoom(item string) (*Item, bool) {
-	envirs := r.GetEnvir()
+	envirs := r.GetFurniture()
 	for idx := range envirs {
-		item, ok := envirs[idx].CheckItemInEnvir(item)
+		item, ok := envirs[idx].CheckItemInFurniture(item)
 		if ok {
 			return item, true
 		}
@@ -94,9 +92,9 @@ func (r Room) CheckItemInRoom(item string) (*Item, bool) {
 }
 
 func (r *Room) RemoveItemInRoom(item *Item) {
-	envirs := r.GetEnvir()
+	envirs := r.GetFurniture()
 	for idx := range envirs {
-		envirs[idx].RemoveItemInEnvir(item)
+		envirs[idx].RemoveItemInFurniture(item)
 	}
 }
 

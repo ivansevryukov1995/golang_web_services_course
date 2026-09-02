@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
+	"os"
 	"strings"
 )
 
@@ -9,37 +12,51 @@ var (
 )
 
 func main() {
-	/*
-		в этой функции можно ничего не писать,
-		но тогда у вас не будет работать через go run main.go
-		очень круто будет сделать построчный ввод команд тут, хотя это и не требуется по заданию
-	*/
+	initGame()
+
+	scanner := bufio.NewScanner(os.Stdin)
+	fmt.Println("Игра началась. Введите команду (или 'выход' для завершения):")
+
+	for {
+		fmt.Print("> ")
+		if !scanner.Scan() {
+			break
+		}
+
+		command := strings.TrimSpace(scanner.Text())
+		if command == "" {
+			continue
+		}
+		if command == "выход" || command == "quit" {
+			fmt.Println("Игра окончена.")
+			break
+		}
+
+		fmt.Println(handleCommand(command))
+	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintln(os.Stderr, "ошибка ввода:", err)
+	}
+}
+
+func addPlayer(player *Player) {
+	world.AddPlayer(player)
 }
 
 func initGame() {
-	/*
-		эта функция инициализирует игровой мир - все комнаты
-		если что-то было - оно корректно перезатирается
-	*/
-
-	// Цели для взамодействия
-	door := NewTarget("дверь")
-
 	// Создание мелких предметов
 	tea := NewItem("чай")
 	keys := NewItem("ключи")
 	notes := NewItem("конспекты")
 	bag := NewItem("рюкзак")
 
-	// Взаимодействия для мелких предметов
-	keys.AddTargets(door)
+	// Создание предметов окружения (Furniture)
+	tableKitchen := NewFurniture("стол")
+	tableRoom := NewFurniture("стол")
+	chairRoom := NewFurniture("стул")
 
-	// Создание предметов окружения (envir)
-	tableKitchen := NewEnvir("стол")
-	tableRoom := NewEnvir("стол")
-	chairRoom := NewEnvir("стул")
-
-	// Наполнение предметов окружения (envir) мелкими предметами
+	// Наполнение предметов окружения (Furniture) мелкими предметами
 	tableKitchen.AddItems(tea)
 	tableRoom.AddItems(keys, notes)
 	chairRoom.AddItems(bag)
@@ -51,14 +68,20 @@ func initGame() {
 	street := NewRoom("улица", "на улице весна")
 	home := NewRoom("домой", "")
 
+	// Создание дверей
+	door := NewDoor("дверь")
+
+	// Взаимодействия для мелких предметов
+	keys.AddTargets(door)
+
 	// Поведение для комнат
 	kitchen.SetKitchen()
 	hall.AddTarget(door)
 	street.AddTarget(door)
 
-	// Наполнение комнат предметами окружения (envir)
-	kitchen.AddEnvir(tableKitchen)
-	room.AddEnvir(tableRoom, chairRoom)
+	// Наполнение комнат предметами окружения (Furniture)
+	kitchen.AddFurniture(tableKitchen)
+	room.AddFurniture(tableRoom, chairRoom)
 
 	// Создание связей между комнатами
 	kitchen.AddNextRooms(hall)
@@ -72,16 +95,19 @@ func initGame() {
 	world.AddRooms(kitchen, hall, room, street, home)
 
 	// Создание игрока
-	playerOne := NewPlayer("Tristan", kitchen)
+	playerOne := NewPlayer("Tristan")
 
 	// Цели игрока
 	mission1 := NewMission("собрать рюкзак")
 	mission2 := NewMission("идти в универ")
-
 	playerOne.AddMissions(mission1, mission2)
 
+	// Точка спавна игрока
+	playerOne.AddSpawnRoom(kitchen)
+
 	// Наполнение мира игроками
-	world.AddPlayer(playerOne)
+	// world.AddPlayer(playerOne)
+	addPlayer(playerOne)
 }
 
 func handleCommand(command string) string {

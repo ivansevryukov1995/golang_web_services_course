@@ -2,7 +2,7 @@ package main
 
 type Item struct {
 	Name    string
-	Targets []*Target
+	Targets []*Door
 }
 
 func NewItem(name string) *Item {
@@ -15,15 +15,15 @@ func (i Item) GetName() string {
 	return i.Name
 }
 
-func (i Item) GetTargets() []*Target {
+func (i Item) GetTargets() []*Door {
 	return i.Targets
 }
 
-func (i *Item) AddTargets(elem ...*Target) {
+func (i *Item) AddTargets(elem ...*Door) {
 	i.Targets = append(i.Targets, elem...)
 }
 
-func (i Item) CheckTarget(target string) (*Target, bool) {
+func (i Item) CheckTarget(target string) (*Door, bool) {
 	targets := i.GetTargets()
 	for idx := range targets {
 		if targets[idx].GetName() == target {

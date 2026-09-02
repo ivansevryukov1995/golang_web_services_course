@@ -1,29 +1,30 @@
 package main
 
-type Envir struct {
+type Furniture struct {
 	Name  string
 	Items []*Item
 }
 
-func NewEnvir(name string) *Envir {
-	return &Envir{
+func NewFurniture(name string) *Furniture {
+	return &Furniture{
 		Name:  name,
 		Items: []*Item{},
 	}
 }
 
-func (e Envir) GetName() string {
+func (e Furniture) GetName() string {
 	return e.Name
 }
-func (e Envir) GetItems() []*Item {
+
+func (e Furniture) GetItems() []*Item {
 	return e.Items
 }
 
-func (e *Envir) AddItems(items ...*Item) {
+func (e *Furniture) AddItems(items ...*Item) {
 	e.Items = append(e.Items, items...)
 }
 
-func (e Envir) CheckItemInEnvir(itemName string) (*Item, bool) {
+func (e Furniture) CheckItemInFurniture(itemName string) (*Item, bool) {
 	items := e.GetItems()
 	for idx := range items {
 		if items[idx].GetName() == itemName {
@@ -33,7 +34,7 @@ func (e Envir) CheckItemInEnvir(itemName string) (*Item, bool) {
 	return nil, false
 }
 
-func (e *Envir) RemoveItemInEnvir(item *Item) {
+func (e *Furniture) RemoveItemInFurniture(item *Item) {
 	for idx := range e.GetItems() {
 		if e.Items[idx].GetName() == item.GetName() {
 			e.Items = append(e.Items[:idx], e.Items[idx+1:]...)

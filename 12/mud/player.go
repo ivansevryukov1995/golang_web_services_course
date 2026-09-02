@@ -13,11 +13,10 @@ type Player struct {
 	ItemsPlayer []*Item
 }
 
-func NewPlayer(name string, room *Room) *Player {
+func NewPlayer(name string) *Player {
 	return &Player{
-		Name:        name,
-		HasBag:      false,
-		CurrentRoom: room,
+		Name:   name,
+		HasBag: false,
 	}
 }
 
@@ -48,6 +47,10 @@ func (p *Player) UpdateMission(missionName string) {
 	}
 }
 
+func (p *Player) AddSpawnRoom(room *Room) {
+	p.CurrentRoom = room
+}
+
 func (p *Player) AddMissions(mission ...*Mission) {
 	p.Missions = append(p.Missions, mission...)
 }
@@ -56,14 +59,14 @@ func (p *Player) AddItems(items ...*Item) {
 	p.ItemsPlayer = append(p.ItemsPlayer, items...)
 }
 
-func (p Player) CheckItem(itemName string) bool {
+func (p Player) CheckItem(itemName string) (*Item, bool) {
 	items := p.GetItems()
 	for idx := range items {
 		if items[idx].GetName() == itemName {
-			return true
+			return items[idx], true
 		}
 	}
-	return false
+	return nil, false
 }
 
 func (p *Player) PutIn(item *Item) {
@@ -100,14 +103,14 @@ func (p *Player) PutOn(itemName string) string {
 
 		return fmt.Sprintf("вы надели: %s", bag.GetName())
 	default:
-		return ""
+		return "нет такого"
 	}
 }
 
-func (p *Player) Apply(item, targetName string) string {
-	ok := p.CheckItem(item)
+func (p *Player) Apply(itemName, targetName string) string {
+	item, ok := p.CheckItem(itemName)
 	if !ok {
-		return fmt.Sprintf("нет предмета в инвентаре - %s", item)
+		return fmt.Sprintf("нет предмета в инвентаре - %s", itemName)
 	}
 
 	_, ok = p.GetCurrentRoom().CheckTarget(targetName)
@@ -115,31 +118,40 @@ func (p *Player) Apply(item, targetName string) string {
 		return "не к чему применить"
 	}
 
-	items := p.GetItems()
-	for idx := range items {
-		if items[idx].GetName() == item {
-			targetOnItem, ok := items[idx].CheckTarget(targetName)
-			if ok {
-				targetOnItem.UpdateInteraction("открыта")
-				return targetName + " " + targetOnItem.GetInteraction()
-			}
-		}
+	target, ok := item.CheckTarget(targetName)
+	if ok {
+		target.Open()
+		return targetName + " " + target.GetCondition()
 	}
+
 	return "нельзя применить"
+}
+
+// GetNextRoomsMsg вернет сообщение: куда можно идти из текущей комнаты
+func (r Room) GetNextRoomsMsg() string {
+	rooms := r.GetNextRooms()
+	if len(rooms) == 0 {
+		return ""
+	}
+	names := make([]string, 0, len(rooms))
+	for idx := range rooms {
+		names = append(names, rooms[idx].GetName())
+	}
+	return fmt.Sprintf("можно пройти - %s", strings.Join(names, ", "))
 }
 
 func (p Player) Look() string {
 	var msg []string
 
 	// Текущая локация
-	if !p.GetCurrentRoom().IsEmptyRoom() {
-		msg = append(msg, "пустая комната")
-	} else if p.GetCurrentRoom().IsKitchen() {
+	if p.GetCurrentRoom().IsKitchen() {
 		msg = append(msg, "ты находишься на кухне")
+	} else if p.GetCurrentRoom().IsEmptyRoom() {
+		msg = append(msg, "пустая комната")
 	}
 
 	// Текущее окружение
-	envirs := p.GetCurrentRoom().GetEnvir()
+	envirs := p.GetCurrentRoom().GetFurniture()
 	var msgEnvirs []string
 
 	for i := range envirs {
@@ -179,22 +191,12 @@ func (p Player) Look() string {
 	onePart := strings.Join(msg, ", ")
 
 	// Куда можно идти дальше
-	msg = []string{}
-	rooms := p.GetCurrentRoom().GetNextRooms()
-	if len(rooms) > 0 {
-		roomNames := make([]string, 0, len(rooms))
-		for _, r := range rooms {
-			roomNames = append(roomNames, r.GetName())
-		}
-		msg = append(msg, fmt.Sprintf("можно пройти - %s", strings.Join(roomNames, ", ")))
-	}
-	twoPart := strings.Join(msg, "")
+	twoPart := p.GetCurrentRoom().GetNextRoomsMsg()
 
 	return strings.Join([]string{onePart, twoPart}, ". ")
 }
 
 func (p *Player) GoTo(roomName string) string {
-	var msg []string
 
 	rooms := p.GetCurrentRoom().GetNextRooms()
 
@@ -206,8 +208,8 @@ func (p *Player) GoTo(roomName string) string {
 	targets := p.GetCurrentRoom().GetTargets()
 	for idx := range targets {
 		_, ok := room.CheckTarget(targets[idx].GetName())
-		if ok && targets[idx].GetInteraction() == "закрыта" {
-			return fmt.Sprintf("%s %s", targets[idx].GetName(), targets[idx].GetInteraction())
+		if ok && targets[idx].GetCondition() == "закрыта" {
+			return fmt.Sprintf("%s %s", targets[idx].GetName(), targets[idx].GetCondition())
 		}
 	}
 
@@ -216,16 +218,7 @@ func (p *Player) GoTo(roomName string) string {
 	p.UpdateCurrentRoom(room)
 
 	// Куда можно идти дальше
-	msg = []string{}
-	rooms = p.GetCurrentRoom().GetNextRooms()
-	if len(rooms) > 0 {
-		roomNames := make([]string, 0, len(rooms))
-		for _, r := range rooms {
-			roomNames = append(roomNames, r.GetName())
-		}
-		msg = append(msg, fmt.Sprintf("можно пройти - %s", strings.Join(roomNames, ", ")))
-	}
-	twoPart := strings.Join(msg, "")
+	twoPart := p.GetCurrentRoom().GetNextRoomsMsg()
 
 	return strings.Join([]string{onePart, twoPart}, ". ")
 }

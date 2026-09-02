@@ -35,8 +35,10 @@ func (e Furniture) CheckItemInFurniture(itemName string) (*Item, bool) {
 }
 
 func (e *Furniture) RemoveItemInFurniture(item *Item) {
-	for idx := range e.GetItems() {
-		if e.Items[idx].GetName() == item.GetName() {
+	items := e.GetItems()
+	for idx := range items {
+		if items[idx] == item {
+			items[idx] = nil
 			e.Items = append(e.Items[:idx], e.Items[idx+1:]...)
 			return
 		}

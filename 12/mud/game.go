@@ -1,46 +1,46 @@
 package main
 
-import (
-	"bufio"
-	"fmt"
-	"os"
-	"strings"
-)
-
 var (
 	world *World
 )
 
 func main() {
-	initGame()
+	// initGame()
 
-	scanner := bufio.NewScanner(os.Stdin)
-	fmt.Println("Игра началась. Введите команду (или 'выход' для завершения):")
+	// scanner := bufio.NewScanner(os.Stdin)
+	// fmt.Println("Игра началась. Введите команду (или 'выход' для завершения):")
 
-	for {
-		fmt.Print("> ")
-		if !scanner.Scan() {
-			break
-		}
+	// for {
+	// 	fmt.Print("> ")
+	// 	if !scanner.Scan() {
+	// 		break
+	// 	}
 
-		command := strings.TrimSpace(scanner.Text())
-		if command == "" {
-			continue
-		}
-		if command == "выход" || command == "quit" {
-			fmt.Println("Игра окончена.")
-			break
-		}
+	// 	command := strings.TrimSpace(scanner.Text())
+	// 	if command == "" {
+	// 		continue
+	// 	}
+	// 	if command == "выход" || command == "quit" {
+	// 		fmt.Println("Игра окончена.")
+	// 		break
+	// 	}
 
-		fmt.Println(handleCommand(command))
-	}
+	// 	fmt.Println(handleCommand(command))
+	// }
 
-	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "ошибка ввода:", err)
-	}
+	// if err := scanner.Err(); err != nil {
+	// 	fmt.Fprintln(os.Stderr, "ошибка ввода:", err)
+	// }
 }
 
 func addPlayer(player *Player) {
+	// Цели игрока
+	mission1 := NewMission("собрать рюкзак")
+	mission2 := NewMission("идти в универ")
+	player.AddMissions(mission1, mission2)
+
+	player.AddCurrentRoom(world.GetSpawnRoom())
+
 	world.AddPlayer(player)
 }
 
@@ -94,39 +94,27 @@ func initGame() {
 
 	world.AddRooms(kitchen, hall, room, street, home)
 
-	// Создание игрока
-	playerOne := NewPlayer("Tristan")
+	world.SetSpawnRoom(kitchen)
 
-	// Цели игрока
-	mission1 := NewMission("собрать рюкзак")
-	mission2 := NewMission("идти в универ")
-	playerOne.AddMissions(mission1, mission2)
-
-	// Точка спавна игрока
-	playerOne.AddSpawnRoom(kitchen)
-
-	// Наполнение мира игроками
-	// world.AddPlayer(playerOne)
-	addPlayer(playerOne)
 }
 
-func handleCommand(command string) string {
-	commands := strings.Split(command, " ")
+// func handleCommand(command string) string {
+// 	commands := strings.Split(command, " ")
 
-	player := world.GetPlayer("Tristan")
+// 	player := world.GetPlayer("Tristan")
 
-	switch commands[0] {
-	case "осмотреться":
-		return player.Look()
-	case "идти":
-		return player.GoTo(commands[1])
-	case "применить":
-		return player.Apply(commands[1], commands[2])
-	case "взять":
-		return player.Take(commands[1])
-	case "надеть":
-		return player.PutOn(commands[1])
-	default:
-		return "неизвестная команда"
-	}
-}
+// 	switch commands[0] {
+// 	case "осмотреться":
+// 		return player.Look()
+// 	case "идти":
+// 		return player.GoTo(commands[1])
+// 	case "применить":
+// 		return player.Apply(commands[1], commands[2])
+// 	case "взять":
+// 		return player.Take(commands[1])
+// 	case "надеть":
+// 		return player.PutOn(commands[1])
+// 	default:
+// 		return "неизвестная команда"
+// 	}
+// }

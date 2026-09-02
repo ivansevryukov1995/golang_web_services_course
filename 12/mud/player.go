@@ -11,12 +11,14 @@ type Player struct {
 	CurrentRoom *Room
 	Missions    []*Mission
 	ItemsPlayer []*Item
+	Messages    chan string
 }
 
 func NewPlayer(name string) *Player {
 	return &Player{
-		Name:   name,
-		HasBag: false,
+		Name:     name,
+		HasBag:   false,
+		Messages: make(chan string),
 	}
 }
 
@@ -28,8 +30,12 @@ func (p Player) GetItems() []*Item {
 	return p.ItemsPlayer
 }
 
-func (p Player) GetCurrentRoom() *Room {
+func (p *Player) GetCurrentRoom() *Room {
 	return p.CurrentRoom
+}
+
+func (p *Player) GetName() string {
+	return p.Name
 }
 
 func (p *Player) UpdateCurrentRoom(room *Room) {
@@ -47,8 +53,9 @@ func (p *Player) UpdateMission(missionName string) {
 	}
 }
 
-func (p *Player) AddSpawnRoom(room *Room) {
+func (p *Player) AddCurrentRoom(room *Room) {
 	p.CurrentRoom = room
+	room.AddNewPlayers(p)
 }
 
 func (p *Player) AddMissions(mission ...*Mission) {
@@ -57,6 +64,13 @@ func (p *Player) AddMissions(mission ...*Mission) {
 
 func (p *Player) AddItems(items ...*Item) {
 	p.ItemsPlayer = append(p.ItemsPlayer, items...)
+}
+
+func (p *Player) AddMessages(msg ...string) {
+	for idx := range msg {
+		p.Messages <- msg[idx]
+	}
+
 }
 
 func (p Player) CheckItem(itemName string) (*Item, bool) {
@@ -101,7 +115,7 @@ func (p *Player) PutOn(itemName string) string {
 
 		p.UpdateMission("собрать рюкзак")
 
-		return fmt.Sprintf("вы надели: %s", bag.GetName())
+		return fmt.Sprintf("вы одели: %s", bag.GetName())
 	default:
 		return "нет такого"
 	}
@@ -127,20 +141,7 @@ func (p *Player) Apply(itemName, targetName string) string {
 	return "нельзя применить"
 }
 
-// GetNextRoomsMsg вернет сообщение: куда можно идти из текущей комнаты
-func (r Room) GetNextRoomsMsg() string {
-	rooms := r.GetNextRooms()
-	if len(rooms) == 0 {
-		return ""
-	}
-	names := make([]string, 0, len(rooms))
-	for idx := range rooms {
-		names = append(names, rooms[idx].GetName())
-	}
-	return fmt.Sprintf("можно пройти - %s", strings.Join(names, ", "))
-}
-
-func (p Player) Look() string {
+func (p *Player) Look() string {
 	var msg []string
 
 	// Текущая локация
@@ -193,32 +194,102 @@ func (p Player) Look() string {
 	// Куда можно идти дальше
 	twoPart := p.GetCurrentRoom().GetNextRoomsMsg()
 
+	// Есть ли в комнате ещё кто-то кроме вас
+	threePart := p.GetCurrentRoom().GetPlayersRoomMsg(p.GetName())
+
+	if threePart != "" {
+		twoPart += ". " + threePart
+	}
+
+	if twoPart != "" {
+		return onePart + ". " + twoPart
+	}
+
 	return strings.Join([]string{onePart, twoPart}, ". ")
 }
 
-func (p *Player) GoTo(roomName string) string {
+func (p *Player) GoTo(newRoomName string) string {
+	oldRoom := p.GetCurrentRoom()
 
-	rooms := p.GetCurrentRoom().GetNextRooms()
+	nextRooms := oldRoom.GetNextRooms()
 
-	room := p.GetCurrentRoom().FindRoomByName(rooms, roomName)
-	if room == nil {
-		return fmt.Sprintf("нет пути в %s", roomName)
+	newRoom := oldRoom.FindRoomByName(nextRooms, newRoomName)
+	if newRoom == nil {
+		return fmt.Sprintf("нет пути в %s", newRoomName)
 	}
 
 	targets := p.GetCurrentRoom().GetTargets()
 	for idx := range targets {
-		_, ok := room.CheckTarget(targets[idx].GetName())
+		_, ok := newRoom.CheckTarget(targets[idx].GetName())
 		if ok && targets[idx].GetCondition() == "закрыта" {
 			return fmt.Sprintf("%s %s", targets[idx].GetName(), targets[idx].GetCondition())
 		}
 	}
 
-	onePart := room.GetDesc()
+	onePart := newRoom.GetDesc()
 
-	p.UpdateCurrentRoom(room)
+	p.UpdateCurrentRoom(newRoom)
+	oldRoom.RemovePlayerInRoom(p)
+	p.GetCurrentRoom().AddNewPlayers(p)
 
 	// Куда можно идти дальше
 	twoPart := p.GetCurrentRoom().GetNextRoomsMsg()
 
 	return strings.Join([]string{onePart, twoPart}, ". ")
+}
+
+func (p *Player) Tell(msg string) {
+	players := p.GetCurrentRoom().GetPlayers()
+	for idx := range players {
+		players[idx].AddMessages(p.GetName() + " говорит: " + msg)
+	}
+}
+
+func (p *Player) TellSomeone(player string, msg string) {
+	if msg == "" {
+		msg = " выразительно молчит, смотря на вас"
+	} else {
+		msg = " говорит вам: " + msg
+	}
+
+	players := p.GetCurrentRoom().GetPlayers()
+
+	for idx := range players {
+		if players[idx].GetName() == player {
+			players[idx].AddMessages(p.GetName() + msg)
+			return
+		}
+	}
+
+	p.AddMessages("тут нет такого игрока")
+}
+
+func (p *Player) HandleInput(command string) {
+	commands := strings.Split(command, " ")
+	var msg string
+
+	switch commands[0] {
+	case "осмотреться":
+		p.AddMessages(p.Look())
+	case "идти":
+		p.AddMessages(p.GoTo(commands[1]))
+	case "применить":
+		p.AddMessages(p.Apply(commands[1], commands[2]))
+	case "взять":
+		p.AddMessages(p.Take(commands[1]))
+	case "одеть":
+		p.AddMessages(p.PutOn(commands[1]))
+	case "сказать":
+		msg = strings.Join(commands[1:], " ")
+		p.Tell(msg)
+	case "сказать_игроку":
+		msg = strings.Join(commands[2:], " ")
+		p.TellSomeone(commands[1], msg)
+	default:
+		p.AddMessages("неизвестная команда")
+	}
+}
+
+func (p *Player) GetOutput() chan string {
+	return p.Messages
 }

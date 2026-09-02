@@ -477,6 +477,13 @@ ok      rwa     0.013s
 <details><summary>Result:</summary>
 
 ```bash
+go test -v -race -count=1
+=== RUN   TestGameSingleplayer
+--- PASS: TestGameSingleplayer (0.05s)
+=== RUN   TestGameMiltiplayer
+--- PASS: TestGameMiltiplayer (0.00s)
+PASS
+ok      hw12  1.489s
 ```
 </details>
 

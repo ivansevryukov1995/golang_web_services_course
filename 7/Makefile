@@ -13,7 +13,7 @@ gen: check-env
 	sed -i 's/package __/package main/g' *.pb.go
 
 test:
-	go test -v -race
+	go test -v -race -count=1
 
 check-env:
 ifndef GOBIN

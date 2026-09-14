@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"maps"
 	"net"
 	"strings"
 	"sync"
@@ -19,58 +18,101 @@ import (
 // тут вы пишете код
 // обращаю ваше внимание - в этом задании запрещены глобальные переменные
 
+type StatEvent struct {
+	Method   string
+	Consumer string
+}
+
+// statSnapshot — локальные счётчики одного подписчика
+type statSnapshot struct {
+	mu         sync.Mutex
+	byMethod   map[string]uint64
+	byConsumer map[string]uint64
+}
+
+func newStatSnapshot() *statSnapshot {
+	return &statSnapshot{
+		byMethod:   make(map[string]uint64),
+		byConsumer: make(map[string]uint64),
+	}
+}
+
+func (ss *statSnapshot) handle(e StatEvent) {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+	ss.byMethod[e.Method]++
+	ss.byConsumer[e.Consumer]++
+}
+
+// flushAndReset возвращает накопленные данные и обнуляет счётчики
+func (ss *statSnapshot) flushAndReset() (method, consumer map[string]uint64) {
+	ss.mu.Lock()
+	defer ss.mu.Unlock()
+
+	method = ss.byMethod
+	consumer = ss.byConsumer
+
+	ss.byMethod = make(map[string]uint64)
+	ss.byConsumer = make(map[string]uint64)
+
+	return
+}
+
+type EventBus struct {
+	mu   sync.RWMutex
+	subs []*statSnapshot
+}
+
+func NewEventBus() *EventBus {
+	return &EventBus{}
+}
+
+// Subscribe создаёт новый snapshot и регистрирует его в шине
+func (eb *EventBus) Subscribe() *statSnapshot {
+	snap := newStatSnapshot()
+
+	eb.mu.Lock()
+	eb.subs = append(eb.subs, snap)
+	eb.mu.Unlock()
+
+	return snap
+}
+
+// Unsubscribe удаляет snapshot из шины
+func (eb *EventBus) Unsubscribe(snap *statSnapshot) {
+	eb.mu.Lock()
+	defer eb.mu.Unlock()
+	for i, s := range eb.subs {
+		if s == snap {
+			eb.subs = append(eb.subs[:i], eb.subs[i+1:]...)
+			return
+		}
+	}
+}
+
+// Publish рассылает событие всем подписчикам
+func (eb *EventBus) Publish(e StatEvent) {
+	eb.mu.RLock()
+	subs := make([]*statSnapshot, len(eb.subs))
+	copy(subs, eb.subs)
+	eb.mu.RUnlock()
+
+	for _, snap := range subs {
+		snap.handle(e)
+	}
+}
+
 type configACL map[string][]string
 
 type server struct {
 	UnimplementedAdminServer
 	UnimplementedBizServer
 
-	mu             sync.Mutex
-	aclConfig      configACL
-	observersEvent []chan Event
+	mu           sync.Mutex
+	aclConfig    configACL
+	observerList []chan *Event
 
-	byMethod   map[string]uint64
-	byConsumer map[string]uint64
-}
-
-func (s *server) Logging(_ *Nothing, stream Admin_LoggingServer) error {
-	ch := s.attachEvent()
-	defer s.detachEvent(ch)
-
-	for {
-		select {
-		case <-stream.Context().Done():
-			return nil
-		case event := <-ch:
-			if err := stream.Send(&event); err != nil {
-				return err
-			}
-		}
-	}
-}
-
-func (s *server) Statistics(req *StatInterval, stream Admin_StatisticsServer) error {
-	prevByMethod, prevByConsumer := s.createStatMemento()
-
-	ticker := time.NewTicker(time.Duration(req.IntervalSeconds) * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-stream.Context().Done():
-			return nil
-		case <-ticker.C:
-			diff := s.diffStat(prevByMethod, prevByConsumer)
-
-			if err := stream.Send(diff); err != nil {
-				return err
-			}
-
-			// Обновляем базу для следующего интервала
-			prevByMethod, prevByConsumer = s.createStatMemento()
-
-		}
-	}
+	statBus *EventBus
 }
 
 func (s *server) Check(ctx context.Context, _ *Nothing) (*Nothing, error) {
@@ -85,195 +127,7 @@ func (s *server) Test(ctx context.Context, _ *Nothing) (*Nothing, error) {
 	return &Nothing{}, nil
 }
 
-func (s *server) aclUnaryInterceptor() grpc.UnaryServerInterceptor {
-	return func(
-		ctx context.Context,
-		req any,
-		info *grpc.UnaryServerInfo,
-		handler grpc.UnaryHandler,
-	) (
-		resp any,
-		err error,
-	) {
-
-		if err = checkACL(ctx, info.FullMethod, s.aclConfig); err != nil {
-			return nil, err
-		}
-
-		return handler(ctx, req)
-	}
-}
-
-func (s *server) aclStreamInterceptor() grpc.StreamServerInterceptor {
-	return func(
-		srv any,
-		ss grpc.ServerStream,
-		info *grpc.StreamServerInfo,
-		handler grpc.StreamHandler,
-	) error {
-
-		if err := checkACL(ss.Context(), info.FullMethod, s.aclConfig); err != nil {
-			return err
-		}
-
-		return handler(srv, ss)
-	}
-}
-
-func (s *server) eventSendUnaryInterceptor() grpc.UnaryServerInterceptor {
-	return func(
-		ctx context.Context,
-		req any,
-		info *grpc.UnaryServerInfo,
-		handler grpc.UnaryHandler,
-	) (
-		resp any,
-		err error) {
-
-		s.notifyEvent(newEvent(ctx, info.FullMethod))
-
-		return handler(ctx, req)
-	}
-}
-
-func (s *server) eventSendStreamInterceptor() grpc.StreamServerInterceptor {
-	return func(
-		srv any,
-		ss grpc.ServerStream,
-		info *grpc.StreamServerInfo,
-		handler grpc.StreamHandler,
-	) error {
-
-		s.notifyEvent(newEvent(ss.Context(), info.FullMethod))
-
-		return handler(srv, ss)
-	}
-}
-func (s *server) statSendUnaryInterceptor() grpc.UnaryServerInterceptor {
-	return func(
-		ctx context.Context,
-		req any,
-		info *grpc.UnaryServerInfo,
-		handler grpc.UnaryHandler,
-	) (
-		resp any,
-		err error) {
-
-		s.incStat(info.FullMethod, extractConsumer(ctx))
-
-		return handler(ctx, req)
-	}
-}
-
-func (s *server) statSendStreamInterceptor() grpc.StreamServerInterceptor {
-	return func(
-		srv any,
-		ss grpc.ServerStream,
-		info *grpc.StreamServerInfo,
-		handler grpc.StreamHandler,
-	) error {
-
-		s.incStat(info.FullMethod, extractConsumer(ss.Context()))
-
-		return handler(srv, ss)
-	}
-}
-
-func (s *server) notifyEvent(event Event) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for _, ch := range s.observersEvent {
-		select {
-		case ch <- event: // неблокирующая отправка
-		default:
-		}
-	}
-}
-
-func (s *server) attachEvent() chan Event {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	ch := make(chan Event)
-	s.observersEvent = append(s.observersEvent, ch)
-
-	return ch
-}
-
-func (s *server) detachEvent(target chan Event) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for i, ch := range s.observersEvent {
-		if ch == target {
-			s.observersEvent = append(s.observersEvent[:i], s.observersEvent[i+1:]...)
-			close(target)
-			break
-		}
-	}
-}
-
-func (s *server) incStat(method, consumer string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.byMethod == nil {
-		s.byMethod = make(map[string]uint64)
-		s.byConsumer = make(map[string]uint64)
-	}
-
-	s.byMethod[method]++
-	s.byConsumer[consumer]++
-}
-
-func (s *server) createStatMemento() (map[string]uint64, map[string]uint64) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	byMethod := make(map[string]uint64, len(s.byMethod))
-	maps.Copy(byMethod, s.byMethod)
-
-	byConsumer := make(map[string]uint64, len(s.byConsumer))
-	maps.Copy(byConsumer, s.byConsumer)
-
-	return byMethod, byConsumer
-}
-
-func (s *server) diffStat(prevByMethod, prevByConsumer map[string]uint64) *Stat {
-	curByMethod, curByConsumer := s.createStatMemento()
-
-	res := &Stat{
-		ByMethod:   make(map[string]uint64),
-		ByConsumer: make(map[string]uint64),
-	}
-
-	for k, v := range curByMethod {
-		if v > prevByMethod[k] {
-			res.ByMethod[k] = v - prevByMethod[k]
-		}
-	}
-
-	for k, v := range curByConsumer {
-		if v > prevByConsumer[k] {
-			res.ByConsumer[k] = v - prevByConsumer[k]
-		}
-	}
-
-	return res
-}
-
-func parseACL(ACLData string) (configACL, error) {
-	var conf configACL
-
-	if err := json.Unmarshal([]byte(ACLData), &conf); err != nil {
-		return nil, err
-	}
-
-	return conf, nil
-}
-
-func hasAccess(allowed []string, method string) bool {
+func HasAccess(allowed []string, method string) bool {
 	newPrefix := strings.Builder{}
 
 	for _, pattern := range allowed {
@@ -281,10 +135,8 @@ func hasAccess(allowed []string, method string) bool {
 			return true
 		}
 
-		if strings.HasSuffix(pattern, "/*") {
-			// Достаем префикс
-			prefix := strings.TrimSuffix(pattern, "/*")
-
+		prefix, ok := strings.CutSuffix(pattern, "/*")
+		if ok {
 			newPrefix.Reset()
 			newPrefix.WriteString(prefix)
 			newPrefix.WriteString("/")
@@ -302,7 +154,7 @@ func hasAccess(allowed []string, method string) bool {
 	return false
 }
 
-func checkACL(
+func CheckACL(
 	ctx context.Context,
 	method string,
 	conf configACL) (err error) {
@@ -324,14 +176,49 @@ func checkACL(
 		return status.Error(codes.Unauthenticated, "unknown consumer")
 	}
 
-	if hasAccess(allowed, method) {
+	if HasAccess(allowed, method) {
 		return nil
 	}
 
 	return status.Error(codes.Unauthenticated, "nothing access")
 }
 
-func newEvent(ctx context.Context, method string) Event {
+func (s *server) ACLUnaryInterceptor() grpc.UnaryServerInterceptor {
+	return func(
+		ctx context.Context,
+		req any,
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (
+		resp any,
+		err error,
+	) {
+
+		if err = CheckACL(ctx, info.FullMethod, s.aclConfig); err != nil {
+			return nil, err
+		}
+
+		return handler(ctx, req)
+	}
+}
+
+func (s *server) ACLStreamInterceptor() grpc.StreamServerInterceptor {
+	return func(
+		srv any,
+		ss grpc.ServerStream,
+		info *grpc.StreamServerInfo,
+		handler grpc.StreamHandler,
+	) error {
+
+		if err := CheckACL(ss.Context(), info.FullMethod, s.aclConfig); err != nil {
+			return err
+		}
+
+		return handler(srv, ss)
+	}
+}
+
+func NewEvent(ctx context.Context, method string) *Event {
 	md, _ := metadata.FromIncomingContext(ctx)
 
 	// Получение consumer
@@ -344,7 +231,7 @@ func newEvent(ctx context.Context, method string) Event {
 		host = p.Addr.String()
 	}
 
-	return Event{
+	return &Event{
 		Timestamp: time.Now().Unix(),
 		Consumer:  consumer,
 		Method:    method,
@@ -352,7 +239,46 @@ func newEvent(ctx context.Context, method string) Event {
 	}
 }
 
-func extractConsumer(ctx context.Context) string {
+func (s *server) NotifyAll(event *Event) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for _, ch := range s.observerList {
+		ch <- event
+	}
+}
+
+func (s *server) EventSendUnaryInterceptor() grpc.UnaryServerInterceptor {
+	return func(
+		ctx context.Context,
+		req any,
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (
+		resp any,
+		err error) {
+
+		s.NotifyAll(NewEvent(ctx, info.FullMethod))
+
+		return handler(ctx, req)
+	}
+}
+
+func (s *server) EventSendStreamInterceptor() grpc.StreamServerInterceptor {
+	return func(
+		srv any,
+		ss grpc.ServerStream,
+		info *grpc.StreamServerInfo,
+		handler grpc.StreamHandler,
+	) error {
+
+		s.NotifyAll(NewEvent(ss.Context(), info.FullMethod))
+
+		return handler(srv, ss)
+	}
+}
+
+func ExtractConsumer(ctx context.Context) string {
 	md, _ := metadata.FromIncomingContext(ctx)
 
 	// Получение consumer
@@ -362,8 +288,107 @@ func extractConsumer(ctx context.Context) string {
 	return consumer
 }
 
+func (s *server) StatSendUnaryInterceptor() grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+
+		s.statBus.Publish(StatEvent{
+			Method:   info.FullMethod,
+			Consumer: ExtractConsumer(ctx),
+		})
+
+		return handler(ctx, req)
+	}
+}
+
+func (s *server) StatSendStreamInterceptor() grpc.StreamServerInterceptor {
+	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+
+		s.statBus.Publish(StatEvent{
+			Method:   info.FullMethod,
+			Consumer: ExtractConsumer(ss.Context()),
+		})
+
+		return handler(srv, ss)
+	}
+}
+
+func (s *server) Register() chan *Event {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	ch := make(chan *Event)
+	s.observerList = append(s.observerList, ch)
+
+	return ch
+}
+
+func (s *server) Deregister(target chan *Event) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for i, ch := range s.observerList {
+		if ch == target {
+			s.observerList = append(s.observerList[:i], s.observerList[i+1:]...)
+			close(target)
+			break
+		}
+	}
+}
+
+func (s *server) Logging(_ *Nothing, stream Admin_LoggingServer) error {
+	ch := s.Register()
+	defer s.Deregister(ch)
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			return nil
+		case event := <-ch:
+			if err := stream.Send(event); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func (s *server) Statistics(req *StatInterval, stream Admin_StatisticsServer) error {
+	// Каждый клиент получает свою локальную подписку
+	snap := s.statBus.Subscribe()
+	defer s.statBus.Unsubscribe(snap)
+
+	ticker := time.NewTicker(time.Duration(req.IntervalSeconds) * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			return nil
+		case <-ticker.C:
+			// Берём накопленные данные и сразу обнуляем — это и есть дифф
+			byMethod, byConsumer := snap.flushAndReset()
+
+			if err := stream.Send(&Stat{
+				ByMethod:   byMethod,
+				ByConsumer: byConsumer,
+			}); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func ParseACL(ACLData string) (configACL, error) {
+	var conf configACL
+
+	if err := json.Unmarshal([]byte(ACLData), &conf); err != nil {
+		return nil, err
+	}
+
+	return conf, nil
+}
+
 func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string) error {
-	ACLConfig, err := parseACL(ACLData)
+	configACL, err := ParseACL(ACLData)
 	if err != nil {
 		return err
 	}
@@ -374,19 +399,20 @@ func StartMyMicroservice(ctx context.Context, listenAddr string, ACLData string)
 	}
 
 	srv := &server{
-		aclConfig: ACLConfig,
+		aclConfig: configACL,
+		statBus:   NewEventBus(),
 	}
 
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
-			srv.aclUnaryInterceptor(),
-			srv.eventSendUnaryInterceptor(),
-			srv.statSendUnaryInterceptor(),
+			srv.ACLUnaryInterceptor(),
+			srv.EventSendUnaryInterceptor(),
+			srv.StatSendUnaryInterceptor(),
 		),
 		grpc.ChainStreamInterceptor(
-			srv.aclStreamInterceptor(),
-			srv.eventSendStreamInterceptor(),
-			srv.statSendStreamInterceptor(),
+			srv.ACLStreamInterceptor(),
+			srv.EventSendStreamInterceptor(),
+			srv.StatSendStreamInterceptor(),
 		),
 	)
 
